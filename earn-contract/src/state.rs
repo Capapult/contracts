@@ -12,6 +12,7 @@ pub const KEY_STATE: &[u8] = b"state";
 pub struct Config {
     pub contract_addr: CanonicalAddr,
     pub owner_addr: CanonicalAddr,
+    pub market_contract: CanonicalAddr,
     pub aterra_contract: CanonicalAddr,
     pub cterra_contract: CanonicalAddr,
     pub capacorp_contract: CanonicalAddr,

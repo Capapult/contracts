@@ -3,16 +3,30 @@
   "title": "State",
   "type": "object",
   "required": [
-    "count",
-    "owner"
+    "owner_addr"
   ],
   "properties": {
-    "count": {
-      "type": "integer",
-      "format": "int32"
-    },
-    "owner": {
+    "aterra_contract": {
       "$ref": "#/definitions/CanonicalAddr"
+    },
+    "cterra_contract": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    "capacorp_contract": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    "capa_contract": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    "insurance_contract": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    "owner_addr": {
+      "$ref": "#/definitions/CanonicalAddr"
+    },
+    "stable_denom": {
+      "description": "denome",
+      "type": "string"
     }
   },
   "definitions": {

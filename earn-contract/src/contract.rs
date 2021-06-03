@@ -4,11 +4,14 @@ use cosmwasm_std::{
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, MigrateResponse,
     MigrateResult, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
 };
+use cw20::{Cw20ReceiveMsg};
 
-use crate::msg::{CountResponse, HandleMsg, InitMsg, QueryMsg};
-use crate::state::{read_config, store_config, Config, State};
+use crate::msg::{ HandleMsg, InitMsg, QueryMsg, ConfigResponse, RedeemStableHookMsg};
+use crate::state::{read_config, store_config, read_state, store_state, Config, State};
+use crate::deposit::{deposit, redeem_stable};
 
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 1000000;
+
 pub fn init<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -35,6 +38,7 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             contract_addr: deps.api.canonical_address(&env.contract.address)?,
             owner_addr: deps.api.canonical_address(&msg.owner_addr)?,
             stable_denom: msg.stable_denom.clone(),
+            market_contract: CanonicalAddr::default(),
             aterra_contract: CanonicalAddr::default(),
             cterra_contract: CanonicalAddr::default(),
             capacorp_contract: CanonicalAddr::default(),
@@ -55,13 +59,15 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
 ) -> StdResult<HandleResponse> {
     match msg {
         HandleMsg::RegisterContracts {
+            market_contract,
             aterra_contract,
             cterra_contract,
             capacorp_contract,
             capa_contract,
             insurance_contract,
         } => register_contracts(
-            deps,
+            deps, env,
+            market_contract,
             aterra_contract,
             cterra_contract,
             capacorp_contract,
@@ -70,21 +76,49 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         ),
         HandleMsg::UpdateConfig { owner_addr } => update_config(deps, env, owner_addr),
         HandleMsg::Distribute { owner_addr } => distribute(deps, env, owner_addr),
-        HandleMsg::Deposit => deposit(),
-        HandleMsg::Withdraw => withdraw(),
+        HandleMsg::Deposit {} => deposit(deps, env),
+        HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
+    }
+}
+
+pub fn receive_cw20<S: Storage, A: Api, Q: Querier>(
+    deps: &mut Extern<S, A, Q>,
+    env: Env,
+    cw20_msg: Cw20ReceiveMsg,
+) -> HandleResult {
+    let contract_addr = env.message.sender.clone();
+    if let Some(msg) = cw20_msg.msg {
+        match from_binary(&msg)? {
+            RedeemStableHookMsg::RedeemStable {} => {
+                // only asset contract can execute this message
+                let config: Config = read_config(&deps.storage)?;
+                if deps.api.canonical_address(&contract_addr)? != config.cterra_contract {
+                    return Err(StdError::unauthorized());
+                }
+
+                redeem_stable(deps, env, cw20_msg.sender, cw20_msg.amount)
+            }
+        }
+    } else {
+        Err(StdError::generic_err(
+            "Invalid request: \"redeem stable\" message not included in request",
+        ))
     }
 }
 
 pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
-    overseer_contract: HumanAddr,
-    interest_model: HumanAddr,
-    distribution_model: HumanAddr,
-    collector_contract: HumanAddr,
-    distributor_contract: HumanAddr,
+    env: Env,
+    market_contract: HumanAddr,
+    aterra_contract: HumanAddr,
+    cterra_contract: HumanAddr,
+    capacorp_contract: HumanAddr,
+    capa_contract: HumanAddr,
+    insurance_contract: HumanAddr,
 ) -> HandleResult {
     let mut config: Config = read_config(&deps.storage)?;
     if config.aterra_contract != CanonicalAddr::default()
+    || config.market_contract != CanonicalAddr::default()
         || config.cterra_contract != CanonicalAddr::default()
         || config.capacorp_contract != CanonicalAddr::default()
         || config.capa_contract != CanonicalAddr::default()
@@ -93,11 +127,17 @@ pub fn register_contracts<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
-    config.aterra_contract = deps.api.canonical_address(&overseer_contract)?;
-    config.cterra_contract = deps.api.canonical_address(&interest_model)?;
-    config.capacorp_contract = deps.api.canonical_address(&distribution_model)?;
-    config.capa_contract = deps.api.canonical_address(&collector_contract)?;
-    config.insurance_contract = deps.api.canonical_address(&distributor_contract)?;
+    // permission check
+    if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
+        return Err(StdError::unauthorized());
+    }
+
+    config.market_contract = deps.api.canonical_address(&market_contract)?;
+    config.aterra_contract = deps.api.canonical_address(&aterra_contract)?;
+    config.cterra_contract = deps.api.canonical_address(&cterra_contract)?;
+    config.capacorp_contract = deps.api.canonical_address(&capacorp_contract)?;
+    config.capa_contract = deps.api.canonical_address(&capa_contract)?;
+    config.insurance_contract = deps.api.canonical_address(&insurance_contract)?;
     store_config(&mut deps.storage, &config)?;
 
     Ok(HandleResponse::default())
@@ -132,7 +172,7 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     env: Env,
     owner_addr: Option<HumanAddr>,
 ) -> HandleResult {
-    let mut config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(&deps.storage)?;
 
     // permission check
     if deps.api.canonical_address(&env.message.sender)? != config.owner_addr {
@@ -147,26 +187,29 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env};
-    use cosmwasm_std::{coins, from_binary, StdError};
 
-    #[test]
-    fn proper_initialization() {
-        let mut deps = mock_dependencies(20, &[]);
-
-        /*   let msg = InitMsg { count: 17 };
-        let env = mock_env("creator", &coins(1000, "earth"));
-
-        // we can just call .unwrap() to assert this was a success
-        let res = init(&mut deps, env, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // it worked, let's query the state
-        let res = query(&deps, QueryMsg::GetCount {}).unwrap();
-        let value: CountResponse = from_binary(&res).unwrap();
-        assert_eq!(17, value.count);*/
+pub fn query<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    msg: QueryMsg,
+) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
     }
 }
+
+pub fn query_config<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(&deps.storage)?;
+    Ok(ConfigResponse {
+         owner_addr: deps.api.human_address(&config.owner_addr)?,
+         market_contract: deps.api.human_address(&config.market_contract)?,
+         aterra_contract: deps.api.human_address(&config.aterra_contract)?,
+         cterra_contract: deps.api.human_address(&config.cterra_contract)?,
+         capacorp_contract: deps.api.human_address(&config.capacorp_contract)?,
+         capa_contract: deps.api.human_address(&config.capa_contract)?,
+         insurance_contract: deps.api.human_address(&config.insurance_contract)?,
+         stable_denom: config.stable_denom,
+    })
+}
+

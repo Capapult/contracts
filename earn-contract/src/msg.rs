@@ -1,6 +1,8 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::HumanAddr;
+use cosmwasm_std::{HumanAddr, Uint128};
+use cosmwasm_bignumber::{Uint256};
+use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -18,6 +20,7 @@ pub enum HandleMsg {
     ////////////////////
     /// Register Contracts contract address
     RegisterContracts {
+        market_contract: HumanAddr,
         aterra_contract: HumanAddr,
         cterra_contract: HumanAddr,
         capacorp_contract: HumanAddr,
@@ -28,24 +31,46 @@ pub enum HandleMsg {
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
     },
-    Distribute {},
+    Distribute {
+        owner_addr: Option<HumanAddr>,
+    },
     ////////////////////
     /// User operations
     ////////////////////
     /// Deposit stable asset to get interest
     Deposit {},
-    Withdraw {},
+    Receive(Cw20ReceiveMsg),
 }
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+#[serde(rename_all = "snake_case")]
+pub enum DepositStableHandleMsg {
+    DepositStable {},
+}
+
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg {
-    // GetCount returns the current count as a json-encoded number
-    GetCount {},
+pub enum RedeemStableHookMsg {
+    RedeemStable {},
 }
+        
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
+    Config {},
+}
+
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct CountResponse {
-    pub count: i32,
+pub struct ConfigResponse {
+    pub owner_addr: HumanAddr,
+    pub market_contract: HumanAddr,
+    pub aterra_contract: HumanAddr,
+    pub cterra_contract: HumanAddr,
+    pub capacorp_contract: HumanAddr,
+    pub capa_contract: HumanAddr,
+    pub insurance_contract: HumanAddr,
+    pub stable_denom: String,
 }
