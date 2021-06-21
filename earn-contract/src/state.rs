@@ -1,12 +1,12 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{CanonicalAddr, Storage, StdResult};
-use cosmwasm_storage::{bucket, bucket_read, ReadonlyBucket, ReadonlySingleton, Singleton};
+use cosmwasm_std::{CanonicalAddr, Storage, StdResult, ReadonlyStorage};
+use cosmwasm_storage::{ReadonlySingleton, Singleton, ReadonlyPrefixedStorage};
 
 pub static KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";
+pub const KEY_BALANCE: &[u8] = b"balance";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -39,4 +39,8 @@ pub fn store_state<S: Storage>(storage: &mut S, data: &State) -> StdResult<()> {
 
 pub fn read_state<S: Storage>(storage: &S) -> StdResult<State> {
     ReadonlySingleton::new(storage, KEY_STATE).load()
+}
+
+pub fn balances_prefix_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyPrefixedStorage<S> {
+    ReadonlyPrefixedStorage::new(KEY_BALANCE, storage)
 }

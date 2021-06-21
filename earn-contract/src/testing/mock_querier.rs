@@ -9,7 +9,7 @@ use cosmwasm_std::{
 };
 use cosmwasm_storage::to_length_prefixed;
 use std::collections::HashMap;
-use crate::msg::ConfigResponse;
+use crate::msg::{ConfigResponse, MarketStateResponse};
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -19,8 +19,8 @@ use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrap
 pub enum QueryMsg {
     /// Query overseer config to get target deposit rate
     Config {},
+    State {},
 }
-
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
 pub fn mock_dependencies(
@@ -156,6 +156,17 @@ impl WasmMockQuerier {
                         capacorp_contract: HumanAddr::default(),
                         insurance_contract: HumanAddr::default(),
                         stable_denom: "uusd".to_string(),
+                    })),
+                    QueryMsg::State {} => Ok(to_binary(&MarketStateResponse {
+                        total_liabilities: Decimal256::zero(),
+                        total_reserves: Decimal256::zero(),
+                        last_interest_updated: 0,
+                        last_reward_updated: 0,
+                        global_interest_index: Decimal256::zero(),
+                        global_reward_index: Decimal256::zero(),
+                        anc_emission_rate: Decimal256::zero(),
+                        prev_aterra_supply: Uint256::zero(),
+                        prev_exchange_rate: Decimal256::one(),
                     })),
                 }
             }

@@ -1,8 +1,8 @@
+use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_std::{HumanAddr, Uint128};
+use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use cosmwasm_std::{HumanAddr, Uint128};
-use cosmwasm_bignumber::{Uint256};
-use cw20::Cw20ReceiveMsg;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InitMsg {
@@ -14,7 +14,7 @@ pub struct InitMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HandleMsg {    
+pub enum HandleMsg {
     ////////////////////
     /// Owner operations
     ////////////////////
@@ -25,15 +25,14 @@ pub enum HandleMsg {
         cterra_contract: HumanAddr,
         capacorp_contract: HumanAddr,
         capa_contract: HumanAddr,
-        insurance_contract: HumanAddr,           
+        insurance_contract: HumanAddr,
     },
     /// Update config values
     UpdateConfig {
         owner_addr: Option<HumanAddr>,
     },
-    Distribute {
-        owner_addr: Option<HumanAddr>,
-    },
+    Distribute {},
+    Fees {},
     ////////////////////
     /// User operations
     ////////////////////
@@ -48,19 +47,31 @@ pub enum DepositStableHandleMsg {
     DepositStable {},
 }
 
-
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RedeemStableHookMsg {
     RedeemStable {},
 }
-        
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     Config {},
+    ExchangeRate {},
+    Supply {
+        contract_addr: String,
+    },
+    TokenBalance {
+        contract_addr: String,
+        account_addr: String,
+    },
+    AllAccounts {},
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryStateMsg {
+    State {},
+}
 
 // We define a custom struct for each query response
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -73,4 +84,31 @@ pub struct ConfigResponse {
     pub capa_contract: HumanAddr,
     pub insurance_contract: HumanAddr,
     pub stable_denom: String,
+}
+
+// We define a custom struct for each query response
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MarketStateResponse {
+    pub total_liabilities: Decimal256,
+    pub total_reserves: Decimal256,
+    pub last_interest_updated: u64,
+    pub last_reward_updated: u64,
+    pub global_interest_index: Decimal256,
+    pub global_reward_index: Decimal256,
+    pub anc_emission_rate: Decimal256,
+    pub prev_aterra_supply: Uint256,
+    pub prev_exchange_rate: Decimal256,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
+pub struct TokenInfoResponse {
+    pub name: String,
+    pub symbol: String,
+    pub decimals: u8,
+    pub total_supply: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
+pub struct AllAccountsResponse {
+    pub accounts: Vec<HumanAddr>,
 }
