@@ -1,9 +1,11 @@
 use crate::contract::{handle, init, INITIAL_DEPOSIT_AMOUNT};
+use crate::deposit::{redeem_stable};
+use crate::querier::{query_token_balance};
 use crate::msg::{HandleMsg, InitMsg, RedeemStableHookMsg};
 use crate::state::Config;
 use crate::testing::mock_querier::{mock_dependencies,WasmMockQuerier};
 use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{from_binary, log, to_binary, Api, Coin, HumanAddr, StdResult, StdError, Uint128, Extern};
+use cosmwasm_std::{from_binary, log, to_binary, Api, Coin, HumanAddr, StdResult, StdError, Uint128, Extern, MemoryStorage};
 
 fn config(deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) -> Config {
     Config {
@@ -43,85 +45,8 @@ fn config(deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) -> Config {
     }
 }
 
-#[test]
-fn too_small_deposit() {
 
-    // BEGIN SETUP
-    let mut deps = mock_dependencies(
-        20,
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128::from(2000000u128),
-        }],
-    );
-    let env = mock_env("addr0000", &[]);
-    //setting up the required environment for the function call (inputs)
-    let mock_config = config(&mut deps);
-
-    deps.querier.with_token_balances(&[(
-        &HumanAddr::from("AT-uusd"),
-        &[(
-            &HumanAddr::from(MOCK_CONTRACT_ADDR),
-            &Uint128::from(1000000u128),
-        )],
-    )]);
-    
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
-        stable_denom: "uusd".to_string(),
-    };
-
-    let env = mock_env(
-        "addr0000",
-        &[Coin {
-            denom: "uusd".to_string(),
-            amount: Uint128(INITIAL_DEPOSIT_AMOUNT),
-        }],
-    );
-
-    // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, env.clone(), msg).unwrap();
-
-    let msg = HandleMsg::RegisterContracts {
-        market_contract: HumanAddr::from("market_contract"),
-        aterra_contract: HumanAddr::from("aterra_contract"),
-        cterra_contract: HumanAddr::from("cterra_contract"),
-        capacorp_contract: HumanAddr::from("capacorp_contract"),
-        capa_contract: HumanAddr::from("capa_contract"),
-        insurance_contract: HumanAddr::from("insurance_contract"),
-    };
-
-    let env = mock_env(HumanAddr::from("owner"), &[]);
-    let res = handle(&mut deps, env, msg.clone());
-    match res {
-        Ok(msg) => {
-            assert_eq!(msg.log, vec![])
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-
-    // END SETUP
-
-    let msg = HandleMsg::Deposit {};
-    let env = mock_env(
-        "addr0000",
-        &[Coin {
-            denom: "uust".to_string(),
-            amount: Uint128::from(0u128),
-        }],
-    );
-
-    let res = handle(&mut deps, env, msg.clone());
-    match res {
-        Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0.25 uusd")
-        }
-        _ => panic!("DO NOT ENTER HERE"),
-    }
-}
-#[test]
-fn proper_deposit() {
-    // BEGIN SETUP
+fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> {
     let mut deps = mock_dependencies(
         20,
         &[Coin {
@@ -174,7 +99,34 @@ fn proper_deposit() {
         }
         _ => panic!("DO NOT ENTER HERE"),
     }    
-    // END SETUP
+    deps
+}
+#[test]
+fn too_small_deposit() {
+    let mut deps = init_test();
+
+    let msg = HandleMsg::Deposit {};
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uust".to_string(),
+            amount: Uint128::from(0u128),
+        }],
+    );
+
+    let res = handle(&mut deps, env, msg.clone());
+    match res {
+        Err(StdError::GenericErr { msg, .. }) => {
+            assert_eq!(msg, "Deposit amount must be greater than 0.25 uusd")
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }    
+}
+
+#[test]
+fn proper_deposit() {
+    
+    let mut deps = init_test();
 
     let env = mock_env(
         "addr0000",
@@ -212,18 +164,207 @@ fn proper_deposit() {
                 ]
             );
         }
+        Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
 
 #[test]
-fn proper_withdraw() {
+fn withdraw_too_much() {
+    let mut deps = init_test();
 
-    let mut deps = mock_dependencies(
-        20,
+    let env = mock_env(
+        "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
-            amount: Uint128::from(2000000u128),
+            amount: Uint128::from(55_555_555_000_000u128),
         }],
     );
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        )],
+    )]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+    let msg = HandleMsg::Deposit {};
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Ok(msg) => {
+            assert_eq!(
+                msg.log,
+                vec![
+                    log("action", "deposit_stable"),
+                    log("depositor", "addr0000"),
+                    log("mint_amount", "55555554750000"),
+                 log("deposit_amount", "55555554750000"),
+                ]
+            );
+        },        
+        Err(msg) => println!("{}", msg),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("aterra_contract"),
+        &[(
+            &env.contract.address,
+            &Uint128::from(55555554750000u128),
+        )],
+    )]);
+    
+    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::from(55_555_555_000_000u128)); 
+    match res {
+        Ok(msg) => panic!("DO NOT ENTER HERE"),
+        Err(msg) =>  assert_eq!(
+            "Generic error: Not enough uusd available; redeem amount 55555555000000 larger than current balance 55555554750000", 
+            msg.to_string()),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+
+#[test]
+fn withdraw_too_little() {
+    let mut deps = init_test();
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        )],
+    )]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+    let msg = HandleMsg::Deposit {};
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Ok(msg) => {
+            assert_eq!(
+                msg.log,
+                vec![
+                    log("action", "deposit_stable"),
+                    log("depositor", "addr0000"),
+                    log("mint_amount", "55555554750000"),
+                 log("deposit_amount", "55555554750000"),
+                ]
+            );
+        },        
+        Err(msg) => println!("{}", msg),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("aterra_contract"),
+        &[(
+            &env.contract.address,
+            &Uint128::from(55555554750000u128),
+        )],
+    )]);
+
+    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::zero()); 
+    match res {
+        Ok(msg) => panic!("DO NOT ENTER HERE"),
+        Err(msg) =>  assert_eq!(
+            "Generic error: Withdrawal amount must be greater than 0.25 uusd", 
+            msg.to_string()),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+#[test]
+fn proper_withdraw() {
+    let mut deps = init_test();
+
+    let env = mock_env(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("AT-uusd"),
+        &[(
+            &HumanAddr::from(MOCK_CONTRACT_ADDR),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        )],
+    )]);
+    deps.querier.update_balance(
+        HumanAddr::from(MOCK_CONTRACT_ADDR),
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+    let msg = HandleMsg::Deposit {};
+    let res = handle(&mut deps, env.clone(), msg.clone());
+    match res {
+        Ok(msg) => {
+            assert_eq!(
+                msg.log,
+                vec![
+                    log("action", "deposit_stable"),
+                    log("depositor", "addr0000"),
+                    log("mint_amount", "55555554750000"),
+                 log("deposit_amount", "55555554750000"),
+                ]
+            );
+        },        
+        Err(msg) => println!("{}", msg),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    deps.querier.with_token_balances(&[(
+        &HumanAddr::from("aterra_contract"),
+        &[(
+            &env.contract.address,
+            &Uint128::from(55555554750000u128),
+        )],
+    )]);
+
+    let current_balance = query_token_balance(
+        &deps,
+        &HumanAddr::from("aterra_contract"),
+        &env.contract.address,
+    );
+
+    println!("current_balance={}", current_balance.unwrap());
+    
+    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::from(55555554750000u128)); 
+    match res {
+        Ok(msg) => {
+            assert_eq!(
+                msg.log,
+                vec![
+                 log("action", "redeem_stable"),
+                 log("burn_amount cust", 55555554750000u128),
+                 log("redeem_amount aust", 55555554750000u128),
+                 log("withdraw_amount ust", 55555554500000u128),
+                ]
+            );
+        },   
+        _ => panic!("DO NOT ENTER HERE"),
+    }
 }

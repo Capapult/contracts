@@ -1,11 +1,13 @@
 use crate::deposit::{deposit, redeem_stable};
-use crate::math::*;
 use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
-    query_capacorp_all_accounts, query_capapult_exchange_rate, query_supply,
-    query_token_balance, query_exchange_rate
+    calculate_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
+    query_current_profit, query_cust_accounts, query_cust_supply, query_exchange_rate,
+    query_token_balance, query_total_profit,
 };
-use crate::state::{read_config, store_config, store_state, Config, State};
+use crate::state::{
+    read_config, read_profit, store_config, store_profit, store_state, Config, State,
+};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
@@ -38,6 +40,8 @@ pub fn init<S: Storage, A: Api, Q: Querier>(
             msg.stable_denom.clone()
         )));
     }
+    store_profit(&mut deps.storage, &Uint256::zero())?;
+
     store_config(
         &mut deps.storage,
         &Config {
@@ -182,9 +186,7 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
-        QueryMsg::Supply { contract_addr } => {
-            to_binary(&query_supply(deps, &HumanAddr::from(contract_addr)))
-        }
+        QueryMsg::Supply => to_binary(&query_cust_supply(deps)),
         QueryMsg::TokenBalance {
             contract_addr,
             account_addr,
@@ -193,9 +195,10 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
             &HumanAddr::from(contract_addr),
             &HumanAddr::from(account_addr),
         )),
-        QueryMsg::AllAccounts {} => {
-            to_binary(&query_capacorp_all_accounts(deps))
-        }
+        QueryMsg::AllAccounts {} => to_binary(&query_capacorp_all_accounts(deps)),
+        QueryMsg::CurrentProfit {} => to_binary(&query_current_profit(deps)),
+        QueryMsg::TotalProfit {} => to_binary(&query_total_profit(deps)),
+        QueryMsg::CustAccounts {} => to_binary(&query_cust_accounts(deps)),
     }
 }
 
@@ -255,7 +258,6 @@ pub fn pay_fees<S: Storage, A: Api, Q: Querier>(
         deps,
         &env.contract.address,
         &deps.api.human_address(&config.aterra_contract)?,
-        &deps.api.human_address(&config.cterra_contract)?,
     )?;
 
     if fees > profit.into() {
@@ -331,37 +333,14 @@ fn transfer_capacorp<S: Storage, A: Api, Q: Querier>(
         let share_str: String = share.into();
         logs.push(log(stake_holder.clone().as_str(), share_str));
     }
-
+    let total_profit = read_profit(&deps.storage)?;
+    let total_profit = total_profit + profit;
+    store_profit(&mut deps.storage, &total_profit)?;
     Ok(HandleResponse {
         messages: messages,
         log: logs,
         data: None,
     })
-}
-
-fn calculate_profit<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    earn_contract: &HumanAddr,
-    aterra_contract: &HumanAddr,
-    cterra_contract: &HumanAddr,
-) -> StdResult<Uint256> {
-    // Load anchor token exchange rate with updated state
-    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
-
-    let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
-    let total_c_ust_amount = query_supply(deps, cterra_contract)?;
-
-    let res1 = Uint256::from(total_aterra_amount) * exchange_rate;
-    let res2 = Uint256::from(total_c_ust_amount) * capa_exchange_rate;
-    if res1 <= res2 {
-        return Err(StdError::GenericErr {
-            msg: String::from("No profit to distribute"),
-            backtrace: None,
-        });
-    }
-
-    Ok(res1 - res2)
 }
 
 pub fn distribute<S: Storage, A: Api, Q: Querier>(
@@ -379,7 +358,6 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
         deps,
         &env.contract.address,
         &deps.api.human_address(&config.aterra_contract)?,
-        &deps.api.human_address(&config.cterra_contract)?,
     )?;
 
     // TODO: once tested take profit when at least there is at least 100 USD of profit

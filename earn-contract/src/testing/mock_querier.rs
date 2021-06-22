@@ -162,7 +162,7 @@ impl WasmMockQuerier {
                         total_reserves: Decimal256::zero(),
                         last_interest_updated: 0,
                         last_reward_updated: 0,
-                        global_interest_index: Decimal256::zero(),
+                        global_interest_index: Decimal256::one(),
                         global_reward_index: Decimal256::zero(),
                         anc_emission_rate: Decimal256::zero(),
                         prev_aterra_supply: Uint256::zero(),

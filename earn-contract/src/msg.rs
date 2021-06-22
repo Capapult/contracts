@@ -57,14 +57,15 @@ pub enum RedeemStableHookMsg {
 pub enum QueryMsg {
     Config {},
     ExchangeRate {},
-    Supply {
-        contract_addr: String,
-    },
+    Supply,
     TokenBalance {
         contract_addr: String,
         account_addr: String,
     },
     AllAccounts {},
+    TotalProfit,
+    CurrentProfit,
+    CustAccounts,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

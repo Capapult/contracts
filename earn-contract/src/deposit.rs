@@ -78,15 +78,22 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps)?;
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
 
-    let withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
+    let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
+    if withdraw_amount < Uint256::from(250000u128)  {
+        return Err(StdError::generic_err(format!(
+            "Withdrawal amount must be greater than 0.25 {}",
+            config.stable_denom,
+        )));
+    }
     let redeem_amount = withdraw_amount / exchange_rate;
+    
+    withdraw_amount = withdraw_amount-Uint256::from(250000u128);
 
     let current_balance = query_token_balance(
         &deps,
         &deps.api.human_address(&config.aterra_contract)?,
         &env.contract.address,
     )?;
-
 
     // Assert redeem amount
     assert_redeem_amount(&config, current_balance, redeem_amount)?;    
