@@ -1,5 +1,7 @@
 use crate::msg::{DepositStableHandleMsg, RedeemStableHookMsg};
-use crate::querier::{query_token_balance,query_exchange_rate, query_capapult_exchange_rate};
+use crate::querier::{
+    deduct_tax, compute_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
+};
 use crate::state::{read_config, Config};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
@@ -26,17 +28,25 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
         .map(|c| Uint256::from(c.amount))
         .unwrap_or_else(Uint256::zero);
 
+    let deposit_coin = deduct_tax(
+        deps,
+        Coin {
+            denom: config.stable_denom.clone(),
+            amount: deposit_amount.into(),
+        },
+    )?;
+    deposit_amount = Uint256::from(deposit_coin.amount);
+
     // Cannot deposit smallish amount
-    if deposit_amount< Uint256::from(250000u128)  {
+    if deposit_amount <= Uint256::from(0u128) {
         return Err(StdError::generic_err(format!(
-            "Deposit amount must be greater than 0.25 {}",
+            "Deposit amount must be greater than 0 after tax {}",
             config.stable_denom,
         )));
     }
-    deposit_amount = deposit_amount-Uint256::from(250000u128);
 
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps)?;
-    let mint_amount =  deposit_amount / capa_exchange_rate;
+    let mint_amount = deposit_amount / capa_exchange_rate;
 
     Ok(HandleResponse {
         messages: vec![
@@ -44,7 +54,7 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
                 contract_addr: deps.api.human_address(&config.market_contract)?,
                 msg: to_binary(&DepositStableHandleMsg::DepositStable {})?,
                 send: vec![Coin {
-                    denom: config.stable_denom,
+                    denom: config.stable_denom.clone(),
                     amount: deposit_amount.into(),
                 }],
             }),
@@ -79,24 +89,28 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
 
     let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
-    if withdraw_amount < Uint256::from(250000u128)  {
+    
+    let redeem_amount = withdraw_amount / exchange_rate;
+
+    let tax_amount = compute_tax(deps, &Coin {
+        denom: config.stable_denom.clone(),
+        amount: withdraw_amount.into(),
+    })?;
+    withdraw_amount = withdraw_amount - tax_amount - tax_amount;
+    if withdraw_amount <= Uint256::from(00u128) {
         return Err(StdError::generic_err(format!(
-            "Withdrawal amount must be greater than 0.25 {}",
-            config.stable_denom,
+            "Withdrawal amount must be greater than 0 after tax {}",
+            config.stable_denom.clone(),
         )));
     }
-    let redeem_amount = withdraw_amount / exchange_rate;
-    
-    withdraw_amount = withdraw_amount-Uint256::from(250000u128);
 
     let current_balance = query_token_balance(
         &deps,
         &deps.api.human_address(&config.aterra_contract)?,
         &env.contract.address,
     )?;
-
     // Assert redeem amount
-    assert_redeem_amount(&config, current_balance, redeem_amount)?;    
+    assert_redeem_amount(&config, current_balance, redeem_amount)?;
 
     Ok(HandleResponse {
         messages: vec![
@@ -112,10 +126,12 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
             CosmosMsg::Bank(BankMsg::Send {
                 from_address: env.contract.address,
                 to_address: sender,
-                amount: vec![Coin {
-                    denom: config.stable_denom,
-                    amount: withdraw_amount.into(),
-                }],
+                amount: vec![
+                        Coin {
+                            denom: config.stable_denom,
+                            amount: withdraw_amount.into(),
+                        },
+                    ],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: deps.api.human_address(&config.cterra_contract)?,

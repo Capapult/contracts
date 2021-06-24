@@ -1,21 +1,20 @@
 use crate::deposit::{deposit, redeem_stable};
-use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, RedeemStableHookMsg};
+use crate::msg::{ConfigResponse, HandleMsg, InitMsg, QueryMsg, RedeemStableHookMsg, TokenInfoResponse};
 use crate::querier::{
     calculate_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_current_profit, query_cust_accounts, query_cust_supply, query_exchange_rate,
-    query_token_balance, query_total_profit,
+    query_dashboard,  query_token_balance, 
 };
 use crate::state::{
     read_config, read_profit, store_config, store_profit, store_state, Config, State,
 };
+use cosmwasm_storage::to_length_prefixed;
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     from_binary, log, to_binary, Api, BankMsg, Binary, CanonicalAddr, Coin, CosmosMsg, Env, Extern,
     HandleResponse, HandleResult, HumanAddr, InitResponse, InitResult, LogAttribute, Querier,
-    StdError, StdResult, Storage, Uint128, WasmMsg,
+    StdError, StdResult, Storage, Uint128, QueryRequest, WasmQuery
 };
-use cw20::{Cw20HandleMsg, Cw20ReceiveMsg};
-use std::ops::Sub;
+use cw20::{Cw20ReceiveMsg};
 
 pub const _1M_: u128 = 1000000;
 pub const INITIAL_DEPOSIT_AMOUNT: u128 = 100000000;
@@ -87,7 +86,7 @@ pub fn handle<S: Storage, A: Api, Q: Querier>(
         ),
         HandleMsg::UpdateConfig { owner_addr } => update_config(deps, env, owner_addr),
         HandleMsg::Distribute {} => distribute(deps, env),
-        HandleMsg::Fees {} => pay_fees(deps, env),
+     //   HandleMsg::Fees {} => pay_fees(deps, env),
         HandleMsg::Deposit {} => deposit(deps, env),
         HandleMsg::Receive(msg) => receive_cw20(deps, env, msg),
     }
@@ -186,19 +185,16 @@ pub fn query<S: Storage, A: Api, Q: Querier>(
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
-        QueryMsg::Supply => to_binary(&query_cust_supply(deps)),
-        QueryMsg::TokenBalance {
+        QueryMsg::Dashboard  {} => to_binary(&query_dashboard(deps)),
+     /*   QueryMsg::TokenBalance {
             contract_addr,
             account_addr,
         } => to_binary(&query_token_balance(
             deps,
             &HumanAddr::from(contract_addr),
             &HumanAddr::from(account_addr),
-        )),
-        QueryMsg::AllAccounts {} => to_binary(&query_capacorp_all_accounts(deps)),
-        QueryMsg::CurrentProfit {} => to_binary(&query_current_profit(deps)),
-        QueryMsg::TotalProfit {} => to_binary(&query_total_profit(deps)),
-        QueryMsg::CustAccounts {} => to_binary(&query_cust_accounts(deps)),
+        )),*/
+        QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)),
     }
 }
 
@@ -218,6 +214,7 @@ pub fn query_config<S: Storage, A: Api, Q: Querier>(
     })
 }
 
+/*
 fn calculate_fees(total_ust_amount: Uint128) -> StdResult<Uint128> {
     // Deal with fees. UST will be consumed by the earn contract, check that we have always enough
     let mut fees: Uint128 = Uint128::zero();
@@ -231,7 +228,6 @@ fn calculate_fees(total_ust_amount: Uint128) -> StdResult<Uint128> {
     }
     Ok(fees)
 }
-
 pub fn pay_fees<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
     env: Env,
@@ -300,7 +296,7 @@ pub fn pay_fees<S: Storage, A: Api, Q: Querier>(
         log: logs,
         data: None,
     })
-}
+}*/
 
 fn transfer_capacorp<S: Storage, A: Api, Q: Querier>(
     deps: &mut Extern<S, A, Q>,
@@ -354,10 +350,19 @@ pub fn distribute<S: Storage, A: Api, Q: Querier>(
         return Err(StdError::unauthorized());
     }
 
+    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+        contract_addr: deps.api.human_address(&config.cterra_contract)?,
+        key: Binary::from(to_length_prefixed(b"token_info")),
+    }))?;
+
+    let token_info: TokenInfoResponse = from_binary(&res)?;
+    let cust_total_supply = Uint256::from(token_info.total_supply);
+
     let profit = calculate_profit(
         deps,
         &env.contract.address,
         &deps.api.human_address(&config.aterra_contract)?,
+        cust_total_supply
     )?;
 
     // TODO: once tested take profit when at least there is at least 100 USD of profit

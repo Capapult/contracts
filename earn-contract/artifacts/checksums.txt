@@ -1,1 +1,1 @@
-4e522f4f3f71f1ae6acc50c2bbbb2639a336c8d96c3ef6da1abd492ffc303c9c  earn_contract.wasm
+81d609ddfdef55a7eb39a1d017fe58bca44166763929e4b262b29a7038b5e51d  earn_contract.wasm

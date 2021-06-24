@@ -343,14 +343,6 @@ fn proper_withdraw() {
             &Uint128::from(55555554750000u128),
         )],
     )]);
-
-    let current_balance = query_token_balance(
-        &deps,
-        &HumanAddr::from("aterra_contract"),
-        &env.contract.address,
-    );
-
-    println!("current_balance={}", current_balance.unwrap());
     
     let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::from(55555554750000u128)); 
     match res {
