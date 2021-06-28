@@ -41,7 +41,7 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
     if deposit_amount <= Uint256::from(0u128) {
         return Err(StdError::generic_err(format!(
             "Deposit amount must be greater than 0 after tax {}",
-            config.stable_denom,
+            config.stable_denom.clone(),
         )));
     }
 
@@ -90,13 +90,20 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
 
     let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
     
-    let redeem_amount = withdraw_amount / exchange_rate;
+
+    let aust_burn_amount = withdraw_amount / exchange_rate;
 
     let tax_amount = compute_tax(deps, &Coin {
         denom: config.stable_denom.clone(),
         amount: withdraw_amount.into(),
     })?;
-    withdraw_amount = withdraw_amount - tax_amount - tax_amount;
+    withdraw_amount = withdraw_amount - tax_amount;
+    let tax_amount = compute_tax(deps, &Coin {
+        denom: config.stable_denom.clone(),
+        amount: withdraw_amount.into(),
+    })?;
+    withdraw_amount = withdraw_amount - tax_amount;
+
     if withdraw_amount <= Uint256::from(00u128) {
         return Err(StdError::generic_err(format!(
             "Withdrawal amount must be greater than 0 after tax {}",
@@ -110,7 +117,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
         &env.contract.address,
     )?;
     // Assert redeem amount
-    assert_redeem_amount(&config, current_balance, redeem_amount)?;
+    assert_redeem_amount(&config, current_balance, aust_burn_amount)?;
 
     Ok(HandleResponse {
         messages: vec![
@@ -119,7 +126,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
                 send: vec![],
                 msg: to_binary(&Cw20HandleMsg::Send {
                     contract: deps.api.human_address(&config.market_contract)?,
-                    amount: redeem_amount.into(),
+                    amount: aust_burn_amount.into(),
                     msg: Some(to_binary(&RedeemStableHookMsg::RedeemStable {})?),
                 })?,
             }),
@@ -128,7 +135,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
                 to_address: sender,
                 amount: vec![
                         Coin {
-                            denom: config.stable_denom,
+                            denom: config.stable_denom.clone(),
                             amount: withdraw_amount.into(),
                         },
                     ],
@@ -144,7 +151,7 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
         log: vec![
             log("action", "redeem_stable"),
             log("burn_amount cust", burn_amount),
-            log("redeem_amount aust", redeem_amount),
+            log("aust_burn_amount aust", aust_burn_amount),
             log("withdraw_amount ust", withdraw_amount),
         ],
         data: None,

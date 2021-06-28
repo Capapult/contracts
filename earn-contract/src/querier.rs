@@ -158,6 +158,26 @@ pub fn calculate_profit<S: Storage, A: Api, Q: Querier>(
     Ok(res1 - res2)
 }
 
+pub fn calculate_aterra_profit<S: Storage, A: Api, Q: Querier>(
+    deps: &Extern<S, A, Q>,
+    earn_contract: &HumanAddr,
+    aterra_contract: &HumanAddr,
+    total_c_ust_supply: Uint256
+) -> StdResult<Uint256> {
+    // Load anchor token exchange rate with updated state
+    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
+    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
+
+    let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
+
+    let res1 = Uint256::from(total_aterra_amount) * exchange_rate;
+    let res2 = Uint256::from(total_c_ust_supply) * capa_exchange_rate;
+    if res1 <= res2 {
+        return Ok(Uint256::zero());
+    }
+
+    Ok((res1 - res2) /  exchange_rate)
+}
 
 #[inline]
 fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
