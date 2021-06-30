@@ -5,7 +5,9 @@ import Earn from './Earn';
 function App() {
   return (
     <div className="App">
-      <Earn />
+      <header className="App-header">   
+      <Earn />   
+      </header>
     </div>
   );
 }

@@ -12,6 +12,7 @@ function Earn() {
   
   const [openDialog, closeDialog] = useDialog();
   const onDepositClick = () => {
+    console.log("onDeposit");
     openDialog({
       children: (
         <>
@@ -32,6 +33,7 @@ function Earn() {
     });
   };
   const onWithdrawClick = () => {
+    console.log("onWithdraw");
     openDialog({
       children: (
         <>

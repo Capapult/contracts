@@ -117,7 +117,7 @@ fn too_small_deposit() {
     let res = handle(&mut deps, env, msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0.25 uusd")
+            assert_eq!(msg, "Deposit amount must be greater than 0 after tax uusd")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }    
@@ -159,8 +159,8 @@ fn proper_deposit() {
                 vec![
                     log("action", "deposit_stable"),
                     log("depositor", "addr0000"),
-                    log("mint_amount", "55555554750000"),
-                 log("deposit_amount", "55555554750000"),
+                    log("mint_amount",    "55555555000000"),
+                    log("deposit_amount", "55555555000000"),
                 ]
             );
         }
@@ -204,8 +204,8 @@ fn withdraw_too_much() {
                 vec![
                     log("action", "deposit_stable"),
                     log("depositor", "addr0000"),
-                    log("mint_amount", "55555554750000"),
-                 log("deposit_amount", "55555554750000"),
+                    log("mint_amount", "55555555000000"),
+                 log("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -266,8 +266,8 @@ fn withdraw_too_little() {
                 vec![
                     log("action", "deposit_stable"),
                     log("depositor", "addr0000"),
-                    log("mint_amount", "55555554750000"),
-                 log("deposit_amount", "55555554750000"),
+                    log("mint_amount", "55555555000000"),
+                 log("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -287,7 +287,7 @@ fn withdraw_too_little() {
     match res {
         Ok(msg) => panic!("DO NOT ENTER HERE"),
         Err(msg) =>  assert_eq!(
-            "Generic error: Withdrawal amount must be greater than 0.25 uusd", 
+            "Generic error: Withdrawal amount must be greater than 0 after tax uusd", 
             msg.to_string()),
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -327,8 +327,8 @@ fn proper_withdraw() {
                 vec![
                     log("action", "deposit_stable"),
                     log("depositor", "addr0000"),
-                    log("mint_amount", "55555554750000"),
-                 log("deposit_amount", "55555554750000"),
+                    log("mint_amount", "55555555000000"),
+                 log("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -352,8 +352,8 @@ fn proper_withdraw() {
                 vec![
                  log("action", "redeem_stable"),
                  log("burn_amount cust", 55555554750000u128),
-                 log("redeem_amount aust", 55555554750000u128),
-                 log("withdraw_amount ust", 55555554500000u128),
+                 log("aust_burn_amount aust", 55555554750000u128),
+                 log("withdraw_amount ust", 55555554750000u128),
                 ]
             );
         },   
