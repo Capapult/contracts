@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, Extern, HumanAddr,
+use cosmwasm_std::{Deps, DepsMut, from_binary, from_slice, to_binary, Api, CanonicalAddr, Coin, Decimal, 
     Querier, QuerierResult, QueryRequest, SystemError, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
@@ -13,6 +12,9 @@ use crate::msg::{ConfigResponse, MarketStateResponse};
 use cw20::TokenInfoResponse;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
+
+
+// github link for col5 update https://github.com/Anchor-Protocol/money-market-contracts/commits/main/contracts/market/src/testing/mock_querier.rs
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -26,15 +28,15 @@ pub enum QueryMsg {
 pub fn mock_dependencies(
     canonical_length: usize,
     contract_balance: &[Coin],
-) -> Extern<MockStorage, MockApi, WasmMockQuerier> {
-    let contract_addr = HumanAddr::from(MOCK_CONTRACT_ADDR);
+) -> DepsMut {
+    let contract_addr = MOCK_CONTRACT_ADDR;
     let custom_querier: WasmMockQuerier = WasmMockQuerier::new(
         MockQuerier::new(&[(&contract_addr, contract_balance)]),
         canonical_length,
         MockApi::new(canonical_length),
     );
 
-    Extern {
+    DepsMut {
         storage: MockStorage::default(),
         api: MockApi::new(canonical_length),
         querier: custom_querier,
@@ -51,11 +53,11 @@ pub struct WasmMockQuerier {
 #[derive(Clone, Default)]
 pub struct TokenQuerier {
     // this lets us iterate over all pairs that match the first string
-    balances: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>>,
+    balances: HashMap<String, HashMap<String, Uint128>>,
 }
 
 impl TokenQuerier {
-    pub fn new(balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])]) -> Self {
+    pub fn new(balances: &[(&str, &[(&str, &Uint128)])]) -> Self {
         TokenQuerier {
             balances: balances_to_map(balances),
         }
@@ -87,16 +89,16 @@ pub(crate) fn caps_to_map(caps: &[(&String, &Uint128)]) -> HashMap<String, Uint1
 }
 
 pub(crate) fn balances_to_map(
-    balances: &[(&HumanAddr, &[(&HumanAddr, &Uint128)])],
-) -> HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> {
-    let mut balances_map: HashMap<HumanAddr, HashMap<HumanAddr, Uint128>> = HashMap::new();
+    balances: &[(&str, &[(&str, &Uint128)])],
+) -> HashMap<String, HashMap<String, Uint128>> {
+    let mut balances_map: HashMap<String, HashMap<String, Uint128>> = HashMap::new();
     for (contract_addr, balances) in balances.iter() {
-        let mut contract_balances_map: HashMap<HumanAddr, Uint128> = HashMap::new();
+        let mut contract_balances_map: HashMap<String, Uint128> = HashMap::new();
         for (addr, balance) in balances.iter() {
-            contract_balances_map.insert(HumanAddr::from(addr), **balance);
+            contract_balances_map.insert(String::from(*addr), **balance);
         }
 
-        balances_map.insert(HumanAddr::from(contract_addr), contract_balances_map);
+        balances_map.insert(String::from(*contract_addr), contract_balances_map);
     }
     balances_map
 }
@@ -147,17 +149,17 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
                 match from_binary(&msg).unwrap() {
-                    QueryMsg::Config {} => Ok(to_binary(&ConfigResponse {
-                        owner_addr: HumanAddr::default(),
-                        aterra_contract: HumanAddr::default(),
-                        market_contract: HumanAddr::default(),
-                        cterra_contract: HumanAddr::default(),
-                        capa_contract: HumanAddr::default(),
-                        capacorp_contract: HumanAddr::default(),
-                        insurance_contract: HumanAddr::default(),
+                    QueryMsg::Config {} => Ok(&ConfigResponse {
+                        owner_addr: String::from(""),
+                        aterra_contract: String::from(""),
+                        market_contract: String::from(""),
+                        cterra_contract: String::from(""),
+                        capa_contract: String::from(""),
+                        capacorp_contract: String::from(""),
+                        insurance_contract: String::from(""),
                         stable_denom: "uusd".to_string(),
-                    })),
-                    QueryMsg::State {} => Ok(to_binary(&MarketStateResponse {
+                    }),
+                    QueryMsg::State {} => Ok(&MarketStateResponse {
                         total_liabilities: Decimal256::zero(),
                         total_reserves: Decimal256::zero(),
                         last_interest_updated: 0,
@@ -167,7 +169,7 @@ impl WasmMockQuerier {
                         anc_emission_rate: Decimal256::zero(),
                         prev_aterra_supply: Uint256::zero(),
                         prev_exchange_rate: Decimal256::one(),
-                    })),
+                    }),
                 }
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
@@ -189,15 +191,14 @@ impl WasmMockQuerier {
                         total_supply += balance.1;
                     }
 
-                    Ok(to_binary(
-                        &to_binary(&TokenInfoResponse {
+                    Ok(&to_binary(&TokenInfoResponse {
                             name: "mAPPL".to_string(),
                             symbol: "mAPPL".to_string(),
                             decimals: 6,
                             total_supply: total_supply,
                         })
                         .unwrap(),
-                    ))
+                    )
                 } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address_raw: CanonicalAddr = CanonicalAddr::from(key_address);
@@ -220,7 +221,7 @@ impl WasmMockQuerier {
                             })
                         }
                     };
-                    Ok(to_binary(&to_binary(&balance).unwrap()))
+                    Ok(&to_binary(&balance).unwrap())
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

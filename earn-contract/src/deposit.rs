@@ -5,24 +5,23 @@ use crate::querier::{
 use crate::state::{read_config, Config};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    log, to_binary, Api, BankMsg, Coin, CosmosMsg, Env, Extern, HandleResponse, HandleResult,
-    HumanAddr, Querier, StdError, StdResult, Storage, Uint128, WasmMsg,
+    attr, to_binary,  BankMsg, Coin, CosmosMsg, Env,  Response, 
+      StdError, StdResult, Deps, WasmMsg, MessageInfo, Addr, Uint128
 };
-use cw20::Cw20HandleMsg;
+use cw20::Cw20ExecuteMsg;
 
 extern crate base64;
 
-pub fn deposit<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
-    env: Env,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+pub fn deposit(
+    deps: Deps,
+    info: MessageInfo,
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
 
     //  println!("before deposit_amount: ");
     // Check base denom deposit
-    let mut deposit_amount: Uint256 = env
-        .message
-        .sent_funds
+    let mut deposit_amount: Uint256 = info
+        .funds
         .iter()
         .find(|c| c.denom == config.stable_denom)
         .map(|c| Uint256::from(c.amount))
@@ -48,10 +47,11 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps)?;
     let mint_amount = deposit_amount / capa_exchange_rate;
 
-    Ok(HandleResponse {
+    Ok(Response {
+        submessages: vec![],
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.market_contract)?,
+                contract_addr: config.market_contract,
                 msg: to_binary(&DepositStableHandleMsg::DepositStable {})?,
                 send: vec![Coin {
                     denom: config.stable_denom.clone(),
@@ -59,31 +59,31 @@ pub fn deposit<S: Storage, A: Api, Q: Querier>(
                 }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.cterra_contract)?,
+                contract_addr: config.cterra_contract,
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Mint {
-                    recipient: env.message.sender.clone(),
+                msg: to_binary(&Cw20ExecuteMsg::Mint {
+                    recipient: info.sender.clone().into(),
                     amount: mint_amount.into(),
                 })?,
             }),
         ],
-        log: vec![
-            log("action", "deposit_stable"),
-            log("depositor", env.message.sender),
-            log("mint_amount", mint_amount),
-            log("deposit_amount", deposit_amount),
+        attributes: vec![
+            attr("action", "deposit_stable"),
+            attr("depositor", info.sender),
+            attr("mint_amount", mint_amount),
+            attr("deposit_amount", deposit_amount),
         ],
         data: None,
     })
 }
 
-pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
-    deps: &mut Extern<S, A, Q>,
+pub fn redeem_stable(
+    deps: Deps,
     env: Env,
-    sender: HumanAddr,
+    sender: Addr,
     burn_amount: Uint128,
-) -> HandleResult {
-    let config: Config = read_config(&deps.storage)?;
+) -> StdResult<Response> {
+    let config: Config = read_config(deps.storage)?;
     // Load anchor token exchange rate with updated state
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps)?;
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
@@ -112,27 +112,27 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
     }
 
     let current_balance = query_token_balance(
-        &deps,
-        &deps.api.human_address(&config.aterra_contract)?,
+        deps,
+        &deps.api.addr_validate(&config.aterra_contract)?,
         &env.contract.address,
     )?;
     // Assert redeem amount
     assert_redeem_amount(&config, current_balance, aust_burn_amount)?;
 
-    Ok(HandleResponse {
+    Ok(Response {
+        submessages: vec![],
         messages: vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.aterra_contract)?,
+                contract_addr: config.aterra_contract,
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Send {
-                    contract: deps.api.human_address(&config.market_contract)?,
+                msg: to_binary(&Cw20ExecuteMsg::Send {
+                    contract: config.market_contract,
                     amount: aust_burn_amount.into(),
                     msg: Some(to_binary(&RedeemStableHookMsg::RedeemStable {})?),
                 })?,
             }),
             CosmosMsg::Bank(BankMsg::Send {
-                from_address: env.contract.address,
-                to_address: sender,
+                to_address: sender.into(),
                 amount: vec![
                         Coin {
                             denom: config.stable_denom.clone(),
@@ -141,18 +141,18 @@ pub fn redeem_stable<S: Storage, A: Api, Q: Querier>(
                     ],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: deps.api.human_address(&config.cterra_contract)?,
+                contract_addr: config.cterra_contract,
                 send: vec![],
-                msg: to_binary(&Cw20HandleMsg::Burn {
+                msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: burn_amount,
                 })?,
             }),
         ],
-        log: vec![
-            log("action", "redeem_stable"),
-            log("burn_amount cust", burn_amount),
-            log("aust_burn_amount aust", aust_burn_amount),
-            log("withdraw_amount ust", withdraw_amount),
+        attributes: vec![
+            attr("action", "redeem_stable"),
+            attr("burn_amount cust", burn_amount),
+            attr("aust_burn_amount aust", aust_burn_amount),
+            attr("withdraw_amount ust", withdraw_amount),
         ],
         data: None,
     })

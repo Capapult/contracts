@@ -1,52 +1,28 @@
-use crate::contract::{handle, init, INITIAL_DEPOSIT_AMOUNT};
+use crate::contract::{execute, instantiate, INITIAL_DEPOSIT_AMOUNT};
 use crate::deposit::{redeem_stable};
 use crate::querier::{query_token_balance};
-use crate::msg::{HandleMsg, InitMsg, RedeemStableHookMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, RedeemStableHookMsg};
 use crate::state::Config;
 use crate::testing::mock_querier::{mock_dependencies,WasmMockQuerier};
-use cosmwasm_std::testing::{mock_env, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
-use cosmwasm_std::{from_binary, log, to_binary, Api, Coin, HumanAddr, StdResult, StdError, Uint128, Extern, MemoryStorage};
+use cosmwasm_std::testing::{mock_info, mock_env, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
+use cosmwasm_std::{Deps, DepsMut, from_binary, attr, to_binary, Api, Coin, StdResult, StdError, Uint128, MemoryStorage};
 
-fn config(deps: &mut Extern<MockStorage, MockApi, WasmMockQuerier>) -> Config {
+fn config(deps: DepsMut) -> Config {
     Config {
-        contract_addr: deps
-            .api
-            .canonical_address(&HumanAddr::from(MOCK_CONTRACT_ADDR))
-            .unwrap(),
-        owner_addr: deps
-            .api
-            .canonical_address(&HumanAddr::from("owner"))
-            .unwrap(),
-        aterra_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("AT-uusd"))
-            .unwrap(),
-        market_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("market"))
-            .unwrap(),
-        cterra_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("cterra_contract"))
-            .unwrap(),
-        capacorp_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("capacorp_contract"))
-            .unwrap(),
-        capa_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("capa_contract"))
-            .unwrap(),
-        insurance_contract: deps
-            .api
-            .canonical_address(&HumanAddr::from("insurance_contract"))
-            .unwrap(),
+        contract_addr: String::from(MOCK_CONTRACT_ADDR),
+        owner_addr: String::from("owner"),
+        aterra_contract: String::from("AT-uusd"),
+        market_contract: String::from("market"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
         stable_denom: "uusd".to_string(),
     }
 }
 
 
-fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> {
+fn init_test() -> DepsMut {
     let mut deps = mock_dependencies(
         20,
         &[Coin {
@@ -54,9 +30,9 @@ fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> 
             amount: Uint128::from(2000000u128),
         }],
     );
-    let env = mock_env("addr0000", &[]);
-    //setting up the required environment for the function call (inputs)
-    let mock_config = config(&mut deps);
+    let info = mock_info("addr0000", &[]);
+    //setting up the required infoironment for the function call (inputs)
+    let mock_config = config(deps);
 
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("AT-uusd"),
@@ -66,12 +42,12 @@ fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> 
         )],
     )]);
 
-    let msg = InitMsg {
-        owner_addr: HumanAddr::from("owner"),
+    let msg = InstantiateMsg {
+        owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
     };
 
-    let env = mock_env(
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
@@ -80,22 +56,22 @@ fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> 
     );
 
     // we can just call .unwrap() to assert this was a success
-    let res = init(&mut deps, env.clone(), msg).unwrap();
+    let res = instantiate(deps, mock_env(), info.clone(), msg).unwrap();
 
-    let msg = HandleMsg::RegisterContracts {
-        market_contract: HumanAddr::from("market_contract"),
-        aterra_contract: HumanAddr::from("aterra_contract"),
-        cterra_contract: HumanAddr::from("cterra_contract"),
-        capacorp_contract: HumanAddr::from("capacorp_contract"),
-        capa_contract: HumanAddr::from("capa_contract"),
-        insurance_contract: HumanAddr::from("insurance_contract"),
+    let msg = ExecuteMsg::RegisterContracts {
+        market_contract: String::from("market_contract"),
+        aterra_contract: String::from("aterra_contract"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
     };
 
-    let env = mock_env(HumanAddr::from("owner"), &[]);
-    let res = handle(&mut deps, env, msg.clone());
+    let info = mock_info(String::from("owner"), &[]);
+    let res = execute(deps, mock_env(), info, msg.clone());
     match res {
         Ok(msg) => {
-            assert_eq!(msg.log, vec![])
+            assert_eq!(msg.attributes, vec![])
         }
         _ => panic!("DO NOT ENTER HERE"),
     }    
@@ -105,8 +81,8 @@ fn init_test() -> cosmwasm_std::Extern<MemoryStorage, MockApi, WasmMockQuerier> 
 fn too_small_deposit() {
     let mut deps = init_test();
 
-    let msg = HandleMsg::Deposit {};
-    let env = mock_env(
+    let msg = ExecuteMsg::Deposit {};
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uust".to_string(),
@@ -114,7 +90,7 @@ fn too_small_deposit() {
         }],
     );
 
-    let res = handle(&mut deps, env, msg.clone());
+    let res = execute(deps, mock_env(), info.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
             assert_eq!(msg, "Deposit amount must be greater than 0 after tax uusd")
@@ -128,7 +104,7 @@ fn proper_deposit() {
     
     let mut deps = init_test();
 
-    let env = mock_env(
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
@@ -150,17 +126,17 @@ fn proper_deposit() {
             amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 55_555_555_000_000u128),
         }],
     );
-    let msg = HandleMsg::Deposit {};
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let msg = ExecuteMsg::Deposit {};
+    let res = execute(&mut deps, mock_env(), info.clone(),  msg.clone());
     match res {
         Ok(msg) => {
             assert_eq!(
-                msg.log,
+                msg.attributes,
                 vec![
-                    log("action", "deposit_stable"),
-                    log("depositor", "addr0000"),
-                    log("mint_amount",    "55555555000000"),
-                    log("deposit_amount", "55555555000000"),
+                    attr("action", "deposit_stable"),
+                    attr("depositor", "addr0000"),
+                    attr("mint_amount",    "55555555000000"),
+                    attr("deposit_amount", "55555555000000"),
                 ]
             );
         }
@@ -173,7 +149,7 @@ fn proper_deposit() {
 fn withdraw_too_much() {
     let mut deps = init_test();
 
-    let env = mock_env(
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
@@ -195,17 +171,17 @@ fn withdraw_too_much() {
             amount: Uint128::from(55_555_555_000_000u128),
         }],
     );
-    let msg = HandleMsg::Deposit {};
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let msg = ExecuteMsg::Deposit {};
+    let res = execute(&mut deps, mock_env(), info.clone(), msg.clone());
     match res {
         Ok(msg) => {
             assert_eq!(
-                msg.log,
+                msg.attributes,
                 vec![
-                    log("action", "deposit_stable"),
-                    log("depositor", "addr0000"),
-                    log("mint_amount", "55555555000000"),
-                 log("deposit_amount", "55555555000000"),
+                    attr("action", "deposit_stable"),
+                    attr("depositor", "addr0000"),
+                    attr("mint_amount", "55555555000000"),
+                    attr("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -216,12 +192,12 @@ fn withdraw_too_much() {
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("aterra_contract"),
         &[(
-            &env.contract.address,
+            &info.contract.address,
             &Uint128::from(55555554750000u128),
         )],
     )]);
     
-    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::from(55_555_555_000_000u128)); 
+    let res = redeem_stable(deps.as_ref(), mock_env(), String::from("addr0000") , Uint128::from(55_555_555_000_000u128)); 
     match res {
         Ok(msg) => panic!("DO NOT ENTER HERE"),
         Err(msg) =>  assert_eq!(
@@ -235,7 +211,7 @@ fn withdraw_too_much() {
 fn withdraw_too_little() {
     let mut deps = init_test();
 
-    let env = mock_env(
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
@@ -257,17 +233,17 @@ fn withdraw_too_little() {
             amount: Uint128::from(55_555_555_000_000u128),
         }],
     );
-    let msg = HandleMsg::Deposit {};
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let msg = ExecuteMsg::Deposit {};
+    let res = execute(&mut deps, mock_env(), info.clone(), msg.clone());
     match res {
         Ok(msg) => {
             assert_eq!(
-                msg.log,
+                msg.attributes,
                 vec![
-                    log("action", "deposit_stable"),
-                    log("depositor", "addr0000"),
-                    log("mint_amount", "55555555000000"),
-                 log("deposit_amount", "55555555000000"),
+                    attr("action", "deposit_stable"),
+                    attr("depositor", "addr0000"),
+                    attr("mint_amount", "55555555000000"),
+                    attr("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -278,12 +254,12 @@ fn withdraw_too_little() {
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("aterra_contract"),
         &[(
-            &env.contract.address,
+            &info.contract.address,
             &Uint128::from(55555554750000u128),
         )],
     )]);
 
-    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::zero()); 
+    let res = redeem_stable(deps, mock_env(), HumanAddr::from("addr0000") , Uint128::zero()); 
     match res {
         Ok(msg) => panic!("DO NOT ENTER HERE"),
         Err(msg) =>  assert_eq!(
@@ -296,7 +272,7 @@ fn withdraw_too_little() {
 fn proper_withdraw() {
     let mut deps = init_test();
 
-    let env = mock_env(
+    let info = mock_info(
         "addr0000",
         &[Coin {
             denom: "uusd".to_string(),
@@ -318,17 +294,17 @@ fn proper_withdraw() {
             amount: Uint128::from(55_555_555_000_000u128),
         }],
     );
-    let msg = HandleMsg::Deposit {};
-    let res = handle(&mut deps, env.clone(), msg.clone());
+    let msg = ExecuteMsg::Deposit {};
+    let res = execute(&mut deps, mock_env(), info.clone(), msg.clone());
     match res {
         Ok(msg) => {
             assert_eq!(
-                msg.log,
+                msg.attributes,
                 vec![
-                    log("action", "deposit_stable"),
-                    log("depositor", "addr0000"),
-                    log("mint_amount", "55555555000000"),
-                 log("deposit_amount", "55555555000000"),
+                    attr("action", "deposit_stable"),
+                    attr("depositor", "addr0000"),
+                    attr("mint_amount", "55555555000000"),
+                    attr("deposit_amount", "55555555000000"),
                 ]
             );
         },        
@@ -339,21 +315,21 @@ fn proper_withdraw() {
     deps.querier.with_token_balances(&[(
         &HumanAddr::from("aterra_contract"),
         &[(
-            &env.contract.address,
+            &info.contract.address,
             &Uint128::from(55555554750000u128),
         )],
     )]);
     
-    let res = redeem_stable(&mut deps, env.clone() , HumanAddr::from("addr0000") , Uint128::from(55555554750000u128)); 
+    let res = redeem_stable(deps, mock_env(),  HumanAddr::from("addr0000") , Uint128::from(55555554750000u128)); 
     match res {
         Ok(msg) => {
             assert_eq!(
-                msg.log,
+                msg.attributes,
                 vec![
-                 log("action", "redeem_stable"),
-                 log("burn_amount cust", 55555554750000u128),
-                 log("aust_burn_amount aust", 55555554750000u128),
-                 log("withdraw_amount ust", 55555554750000u128),
+                    attr("action", "redeem_stable"),
+                 attr("burn_amount cust", 55555554750000u128),
+                 attr("aust_burn_amount aust", 55555554750000u128),
+                 attr("withdraw_amount ust", 55555554750000u128),
                 ]
             );
         },   

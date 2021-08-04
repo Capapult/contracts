@@ -7,20 +7,20 @@ use crate::msg::{
 use crate::state::{read_config, read_profit, Config};
 
 use cosmwasm_std::{
-    from_binary, to_binary, Api, Binary, Coin, Extern, HumanAddr, Querier, QueryRequest,
-    StdResult, Storage, Uint128, WasmQuery,
+    from_binary, to_binary, Binary, Coin, Addr, QueryRequest,
+    StdResult, Uint128, WasmQuery,Deps
 };
 
 use cosmwasm_storage::to_length_prefixed;
 use terra_cosmwasm::TerraQuerier;
 
-pub fn query_exchange_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_exchange_rate(
+    deps: Deps,
 ) -> StdResult<Decimal256> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: deps.api.human_address(&config.market_contract)?,
+            contract_addr: config.market_contract.into(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -30,13 +30,13 @@ pub fn query_exchange_rate<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_capapult_exchange_rate<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_capapult_exchange_rate(
+    deps: Deps,
 ) -> StdResult<Decimal256> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: deps.api.human_address(&config.market_contract)?,
+            contract_addr: config.market_contract.into(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -46,19 +46,20 @@ pub fn query_capapult_exchange_rate<S: Storage, A: Api, Q: Querier>(
     }
 }
 
-pub fn query_token_balance<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    contract_addr: &HumanAddr,
-    account_addr: &HumanAddr,
+pub fn query_token_balance(
+    deps: Deps,
+    contract_addr: &Addr,
+    account_addr: &Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
+    let account : String = account_addr.into();
     let res: Binary = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: HumanAddr::from(contract_addr),
+            contract_addr: contract_addr.into(),
             key: Binary::from(concat(
                 &to_length_prefixed(b"balance").to_vec(),
-                (deps.api.canonical_address(&account_addr)?).as_slice(),
+                &account.as_bytes(),
             )),
         }))
         .unwrap_or_else(|_| to_binary(&Uint128::zero()).unwrap());
@@ -67,13 +68,13 @@ pub fn query_token_balance<S: Storage, A: Api, Q: Querier>(
     Ok(balance.into())
 }
 
-pub fn query_dashboard<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn query_dashboard(
+    deps: Deps,
 ) -> StdResult<DashboardResponse> {
-    let config: Config = read_config(&deps.storage)?;
+    let config: Config = read_config(deps.storage)?;
 
     let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: deps.api.human_address(&config.cterra_contract)?,
+        contract_addr: config.cterra_contract.clone().into(),
         key: Binary::from(to_length_prefixed(b"token_info")),
     }))?;
 
@@ -82,26 +83,28 @@ pub fn query_dashboard<S: Storage, A: Api, Q: Querier>(
 
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: deps.api.human_address(&config.cterra_contract)?,
+            contract_addr: config.cterra_contract.clone().into(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
     let current_profit = calculate_profit(
         deps,
-        &deps.api.human_address(&config.contract_addr)?,
-        &deps.api.human_address(&config.aterra_contract)?,
+        &deps.api.addr_validate(&config.contract_addr)?,
+        &deps.api.addr_validate(&config.aterra_contract)?,
         cust_total_supply
     )?;
-    let total_profit: Uint256 = read_profit(&deps.storage)?;
+    let total_profit: Uint256 = read_profit(deps.storage)?;
 
     let mut total_value_locked: Uint256 = Uint256::from(
-        query_token_balance(deps, &deps.api.human_address(&config.aterra_contract)?, 
-        &deps.api.human_address(&config.contract_addr)?)?
+        query_token_balance(deps, 
+            &deps.api.addr_validate(&config.aterra_contract)?, 
+            &deps.api.addr_validate(&config.contract_addr)?
+        )?
     );
     
     let market_state: MarketStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: deps.api.human_address(&config.market_contract)?,
+            contract_addr: config.market_contract.into(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
@@ -124,23 +127,23 @@ pub fn query_dashboard<S: Storage, A: Api, Q: Querier>(
     })
 }
 
-pub fn query_capacorp_all_accounts<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-) -> StdResult<Vec<HumanAddr>> {
-    let config: Config = read_config(&deps.storage)?;
+pub fn query_capacorp_all_accounts(
+    deps: Deps,
+) -> StdResult<Vec<Addr>> {
+    let config: Config = read_config(deps.storage)?;
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: deps.api.human_address(&config.capacorp_contract)?,
+            contract_addr: config.capacorp_contract.into(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
     Ok(all_accounts.accounts)
 }
 
-pub fn calculate_profit<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    earn_contract: &HumanAddr,
-    aterra_contract: &HumanAddr,
+pub fn calculate_profit(
+    deps: Deps,
+    earn_contract: &Addr,
+    aterra_contract: &Addr,
     total_c_ust_supply: Uint256
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
@@ -158,10 +161,10 @@ pub fn calculate_profit<S: Storage, A: Api, Q: Querier>(
     Ok(res1 - res2)
 }
 
-pub fn calculate_aterra_profit<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
-    earn_contract: &HumanAddr,
-    aterra_contract: &HumanAddr,
+pub fn calculate_aterra_profit(
+    deps: Deps,
+    earn_contract: &Addr,
+    aterra_contract: &Addr,
     total_c_ust_supply: Uint256
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
@@ -186,8 +189,8 @@ fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
     k
 }
 
-pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn compute_tax(
+    deps: Deps,
     coin: &Coin,
 ) -> StdResult<Uint256> {
     let terra_querier = TerraQuerier::new(&deps.querier);
@@ -199,8 +202,8 @@ pub fn compute_tax<S: Storage, A: Api, Q: Querier>(
         tax_cap,
     ))
 }
-pub fn deduct_tax<S: Storage, A: Api, Q: Querier>(
-    deps: &Extern<S, A, Q>,
+pub fn deduct_tax(
+    deps: Deps,
     coin: Coin,
 ) -> StdResult<Coin> {
     let tax_amount = compute_tax(deps, &coin)?;

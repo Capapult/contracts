@@ -1,6 +1,6 @@
 [package]
 name = "earn-contract"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Bruno <bruno@capapult.finance>"]
 edition = "2018"
 
@@ -30,20 +30,31 @@ overflow-checks = true
 # for more explicit tests, cargo test --features=backtraces
 backtraces = ["cosmwasm-std/backtraces"]
 
+[dependencies.serde]
+default-features = false
+features = ["derive"]
+version = "=1.0.103"
+
+
+[dependencies.schemars]
+version = "=0.8.1"
+
+[dependencies.cosmwasm-std]
+version = "=0.14.0"
+
+[dependencies.cosmwasm-storage]
+version = "=0.14.0"
+
 [dependencies]
-cosmwasm-std = { version = "0.10.1" }
-cosmwasm-storage = { version = "0.10.1" }
-schemars = "0.7"
-serde = { version = "1.0.103", default-features = false, features = ["derive"] }
-snafu = { version = "0.6.3" }
-cosmwasm-bignumber = "1.0"
-cw20 = "0.2.1"
-base64 = "0.13.0"
-bigint="4.4.3"
-terra-cosmwasm = "1.2.3"
+snafu = { version = "=0.6.3" }
+base64 = "=0.13.0"
+cw20 = "=0.6.2"
+terra-cosmwasm = "=2.0.0"
+cosmwasm-bignumber = "=2.0.0"
+bigint="=4"
 
 [dev-dependencies]
-cosmwasm-schema = "0.10.1"
+cosmwasm-schema = "=0.14.0"
 
 [profile.dev]
 overflow-checks = true

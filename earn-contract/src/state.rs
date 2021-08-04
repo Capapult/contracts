@@ -1,7 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{CanonicalAddr, Storage, StdResult, ReadonlyStorage};
+use cosmwasm_std::{Storage, StdResult};
 use cosmwasm_storage::{ReadonlySingleton, Singleton, ReadonlyPrefixedStorage};
 use cosmwasm_bignumber::{Uint256};
 
@@ -12,14 +12,14 @@ const PREFIX_PROFIT: &[u8] = b"profit";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub contract_addr: CanonicalAddr,
-    pub owner_addr: CanonicalAddr,
-    pub market_contract: CanonicalAddr,
-    pub aterra_contract: CanonicalAddr,
-    pub cterra_contract: CanonicalAddr,
-    pub capacorp_contract: CanonicalAddr,
-    pub capa_contract: CanonicalAddr,
-    pub insurance_contract: CanonicalAddr,
+    pub contract_addr: String,
+    pub owner_addr: String,
+    pub market_contract: String,
+    pub aterra_contract: String,
+    pub cterra_contract: String,
+    pub capacorp_contract: String,
+    pub capa_contract: String,
+    pub insurance_contract: String,
     pub stable_denom: String,
 }
 
@@ -27,29 +27,29 @@ pub struct Config {
 pub struct State {
 }
 
-pub fn store_config<S: Storage>(storage: &mut S, data: &Config) -> StdResult<()> {
+pub fn store_config(storage: &mut dyn Storage, data: &Config) -> StdResult<()> {
     Singleton::new(storage, KEY_CONFIG).save(data)
 }
 
-pub fn read_config<S: Storage>(storage: &S) -> StdResult<Config> {
+pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
-pub fn store_state<S: Storage>(storage: &mut S, data: &State) -> StdResult<()> {
+pub fn store_state(storage: &mut dyn Storage, data: &State) -> StdResult<()> {
     Singleton::new(storage, KEY_STATE).save(data)
 }
 
-pub fn read_state<S: Storage>(storage: &S) -> StdResult<State> {
+pub fn read_state(storage: &dyn Storage) -> StdResult<State> {
     ReadonlySingleton::new(storage, KEY_STATE).load()
 }
 
-pub fn balances_prefix_read<S: ReadonlyStorage>(storage: &S) -> ReadonlyPrefixedStorage<S> {
-    ReadonlyPrefixedStorage::new(KEY_BALANCE, storage)
+pub fn balances_prefix_read(storage: &dyn Storage) -> ReadonlyPrefixedStorage {
+    ReadonlyPrefixedStorage::new(storage, KEY_BALANCE)
 }
-pub fn store_profit<S: Storage>(storage: &mut S, profit: &Uint256) -> StdResult<()>  {
+pub fn store_profit(storage: &mut dyn Storage, profit: &Uint256) -> StdResult<()>  {
     Singleton::new(storage, PREFIX_PROFIT).save(profit)
 }
 
-pub fn read_profit<S: ReadonlyStorage>(storage: &S) -> StdResult<Uint256> {
+pub fn read_profit(storage: &dyn Storage) -> StdResult<Uint256> {
     ReadonlySingleton::new(storage, PREFIX_PROFIT).load()
 }

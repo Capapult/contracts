@@ -89,7 +89,7 @@ impl Math for Decimal256 {
     fn ln(x: Decimal256) -> StdResult<Decimal256> {        
         let one = Decimal256::one();
         if x < one {
-            return Err(StdError::GenericErr {msg: String::from("Ln: Not in range < 1"), backtrace: None });
+            return Err(StdError::GenericErr {msg: String::from("Ln: Not in range < 1") });
         }
         if x == one {
             return Ok(Decimal256::zero());
@@ -135,7 +135,7 @@ impl Math for Decimal256 {
 
     fn exp(x: Decimal256) -> StdResult<Decimal256> {
         if x < Decimal256::zero() || x > Decimal256::from_ratio(709, 1) {
-            return Err(StdError::GenericErr {msg: String::from("Exp: Not in range < 0 or > 709"), backtrace: None });
+            return Err(StdError::GenericErr {msg: String::from("Exp: Not in range < 0 or > 709") });
         }      
         let one = Decimal256::one();
         if x.is_zero() {
