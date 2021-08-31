@@ -32,13 +32,14 @@ pub enum ExecuteMsg {
         owner_addr: Option<Addr>,
     },
     Distribute {},
-  //  Fees {},
+    //  Fees {},
     ////////////////////
     /// User operations
     ////////////////////
     /// Deposit stable asset to get interest
     Deposit {},
     Receive(Cw20ReceiveMsg),
+    Harvest {},
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -58,11 +59,8 @@ pub enum QueryMsg {
     Config {},
     ExchangeRate {},
     Dashboard {},
-  /*  TokenBalance {
-        contract_addr: String,
-        account_addr: String,
-    },*/
     CorpAccounts {},
+    HarvestValue { account_addr: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

@@ -1,18 +1,18 @@
-use crate::deposit::{deposit, redeem_stable};
+use crate::deposit::{deposit, harvest, redeem_stable};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, TokenInfoResponse,
 };
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_dashboard, query_token_balance,
+    query_dashboard, query_harvest_value, query_token_balance,
 };
 use crate::state::{
     read_config, read_profit, store_config, store_profit, store_state, Config, State,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, entry_point, from_binary, to_binary, Addr, Binary, CosmosMsg, Deps, DepsMut, Env,
-    MessageInfo, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg, WasmQuery,Attribute
+    attr, entry_point, from_binary, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps, DepsMut,
+    Env, MessageInfo, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -32,13 +32,13 @@ pub fn instantiate(
         .iter()
         .find(|c| c.denom == msg.stable_denom)
         .map(|c| c.amount)
-        .unwrap_or_else(|| Uint128::zero());
+        .unwrap_or_else(Uint128::zero);
 
-    if initial_deposit != Uint128(INITIAL_DEPOSIT_AMOUNT) {
+    if initial_deposit != INITIAL_DEPOSIT_AMOUNT.into() {
         return Err(StdError::generic_err(format!(
             "Must deposit initial funds {:?}{:?}",
             INITIAL_DEPOSIT_AMOUNT,
-            msg.stable_denom.clone()
+            msg.stable_denom
         )));
     }
     store_profit(deps.storage, &Uint256::zero())?;
@@ -58,7 +58,7 @@ pub fn instantiate(
         &Config {
             contract_addr: env.contract.address.into(),
             owner_addr: msg.owner_addr,
-            stable_denom: msg.stable_denom.clone(),
+            stable_denom: msg.stable_denom,
             market_contract: String::from(""),
             aterra_contract: String::from(""),
             cterra_contract: String::from(""),
@@ -94,8 +94,9 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ),
         ExecuteMsg::UpdateConfig { owner_addr } => update_config(deps, info, owner_addr),
         ExecuteMsg::Distribute {} => distribute(deps, env, info),
-        ExecuteMsg::Deposit {} => deposit(deps.as_ref(), info),
+        ExecuteMsg::Deposit {} => deposit(deps, info),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
+        ExecuteMsg::Harvest {} => harvest(deps.as_ref(), info),
     }
 }
 
@@ -105,7 +106,7 @@ pub fn receive_cw20(
     info: MessageInfo,
     cw20_msg: Cw20ReceiveMsg,
 ) -> StdResult<Response> {
-    let contract_addr = info.sender.clone();
+    let contract_addr = info.sender;
     let msg = cw20_msg.msg;
 
     match from_binary(&msg)? {
@@ -115,8 +116,8 @@ pub fn receive_cw20(
             if contract_addr != config.cterra_contract {
                 return Err(StdError::generic_err("Unauthorized"));
             }
-
-            redeem_stable(deps.as_ref(), env, deps.api.addr_validate(&cw20_msg.sender)?, cw20_msg.amount)
+            let sender = deps.api.addr_validate(&cw20_msg.sender)?;
+            redeem_stable(deps, env, sender, cw20_msg.amount)
         }
     }
 }
@@ -132,12 +133,12 @@ pub fn register_contracts(
     insurance_contract: &str,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
-    if config.aterra_contract != ""
-        || config.market_contract != ""
-        || config.cterra_contract != ""
-        || config.capacorp_contract != ""
-        || config.capa_contract != ""
-        || config.insurance_contract != ""
+    if !config.aterra_contract.is_empty()
+        || !config.market_contract.is_empty()
+        || !config.cterra_contract.is_empty()
+        || !config.capacorp_contract.is_empty()
+        || !config.capa_contract.is_empty()
+        || !config.insurance_contract.is_empty()
     {
         return Err(StdError::generic_err("Unauthorized"));
     }
@@ -183,12 +184,7 @@ pub fn update_config(
     }
 
     store_config(deps.storage, &config)?;
-    Ok(Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![attr("action", "update_config")],
-        data: None,
-    })
+    Ok(Response::new().add_attribute("action", "update_config"))
 }
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -197,6 +193,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
         QueryMsg::Dashboard {} => to_binary(&query_dashboard(deps)?),
         QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)?),
+        QueryMsg::HarvestValue { account_addr } => {
+            to_binary(&query_harvest_value(deps, account_addr)?)
+        }
     }
 }
 
@@ -221,12 +220,11 @@ fn transfer_capacorp(
     profit_amount: Uint256,
 ) -> StdResult<Response> {
     let mut messages: Vec<CosmosMsg> = Vec::new();
-    let mut logs: Vec<Attribute> = Vec::new();
-    logs.push(attr("action", "distribute"));
+    let mut logs: Vec<Attribute> = vec![attr("action", "distribute")];
 
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: config.aterra_contract.clone(),
-        send: vec![],
+        funds: vec![],
         msg: to_binary(&Cw20ExecuteMsg::Transfer {
             recipient: config.insurance_contract,
             amount: insurance_amount.into(),
@@ -244,10 +242,10 @@ fn transfer_capacorp(
             &deps.api.addr_validate(&config.capacorp_contract)?,
             &stake_holder,
         )?;
-        let share = Uint256::from(profit_amount * percent) * Decimal256::from_ratio(1, 100);
+        let share = profit_amount * percent * Decimal256::from_ratio(1, 100);
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.aterra_contract.clone(),
-            send: vec![],
+            funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
                 recipient: stake_holder.clone().into(),
                 amount: share.into(),
@@ -260,12 +258,7 @@ fn transfer_capacorp(
     let total_profit = read_profit(deps.storage)?;
     let total_profit = total_profit + profit_amount;
     store_profit(deps.storage, &total_profit)?;
-    Ok(Response {
-        submessages: vec![],
-        messages: messages,
-        attributes: logs,
-        data: None,
-    })
+    Ok(Response::new().add_messages(messages).add_attributes(logs))
 }
 
 pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Response> {
@@ -306,7 +299,7 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
     // DURING TEST, profit taking can occur with only 0.1 UST
     if profit < Uint256::from(/* INITIAL_DEPOSIT_AMOUNT * */ _1M_ / 10) {
         return Err(StdError::GenericErr {
-            msg: String::from(format!("Too little profit to distribute: {}", profit)),
+            msg: format!("Too little profit to distribute: {}", profit),
         });
     }
 

@@ -2,25 +2,23 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
 use crate::msg::{
-    AllAccountsResponse, DashboardResponse, MarketStateResponse, Account, QueryStateMsg, TokenInfoResponse,
+    Account, AllAccountsResponse, DashboardResponse, MarketStateResponse, QueryStateMsg,
+    TokenInfoResponse,
 };
-use crate::state::{read_config, read_profit, Config};
+use crate::state::{read_config, read_profit, read_total_deposit, Config};
 
 use cosmwasm_std::{
-    from_binary, to_binary, Binary, Coin, Addr, QueryRequest,
-    StdResult, Uint128, WasmQuery,Deps
+    from_binary, to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
 use terra_cosmwasm::TerraQuerier;
 
-pub fn query_exchange_rate(
-    deps: Deps,
-) -> StdResult<Decimal256> {
+pub fn query_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
     let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract.into(),
+            contract_addr: config.market_contract,
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -30,13 +28,11 @@ pub fn query_exchange_rate(
     }
 }
 
-pub fn query_capapult_exchange_rate(
-    deps: Deps,
-) -> StdResult<Decimal256> {
+pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
     let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract.into(),
+            contract_addr: config.market_contract,
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -52,7 +48,7 @@ pub fn query_token_balance(
     account_addr: &Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let account : String = account_addr.into();
+    let account: String = account_addr.into();
     let res: Binary = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
@@ -68,13 +64,11 @@ pub fn query_token_balance(
     Ok(balance.into())
 }
 
-pub fn query_dashboard(
-    deps: Deps,
-) -> StdResult<DashboardResponse> {
+pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
     let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: config.cterra_contract.clone().into(),
+        contract_addr: config.cterra_contract.clone(),
         key: Binary::from(to_length_prefixed(b"token_info")),
     }))?;
 
@@ -83,7 +77,7 @@ pub fn query_dashboard(
 
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.cterra_contract.clone().into(),
+            contract_addr: config.cterra_contract.clone(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
@@ -91,20 +85,19 @@ pub fn query_dashboard(
         deps,
         &deps.api.addr_validate(&config.contract_addr)?,
         &deps.api.addr_validate(&config.aterra_contract)?,
-        cust_total_supply
+        cust_total_supply,
     )?;
     let total_profit: Uint256 = read_profit(deps.storage)?;
 
-    let mut total_value_locked: Uint256 = Uint256::from(
-        query_token_balance(deps, 
-            &deps.api.addr_validate(&config.aterra_contract)?, 
-            &deps.api.addr_validate(&config.contract_addr)?
-        )?
-    );
-    
+    let mut total_value_locked: Uint256 = query_token_balance(
+        deps,
+        &deps.api.addr_validate(&config.aterra_contract)?,
+        &deps.api.addr_validate(&config.contract_addr)?,
+    )?;
+
     let market_state: MarketStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract.into(),
+            contract_addr: config.market_contract,
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
@@ -114,26 +107,25 @@ pub fn query_dashboard(
     let cust_total_supply = Uint256::from(token_info.total_supply);
     let mut cust_avg_balance = Decimal256::zero();
     if cust_nb_accounts > Uint256::zero() {
-        cust_avg_balance  = Decimal256::from_uint256(cust_total_supply) /  Decimal256::from_uint256(cust_nb_accounts);
-    }     
+        cust_avg_balance = Decimal256::from_uint256(cust_total_supply)
+            / Decimal256::from_uint256(cust_nb_accounts);
+    }
 
     Ok(DashboardResponse {
-        total_value_locked: total_value_locked,
-        cust_total_supply: cust_total_supply,
-        cust_nb_accounts: cust_nb_accounts,
-        cust_avg_balance: cust_avg_balance,
-        current_profit: current_profit,
-        total_profit: total_profit
+        total_value_locked,
+        cust_total_supply,
+        cust_nb_accounts,
+        cust_avg_balance,
+        current_profit,
+        total_profit,
     })
 }
 
-pub fn query_capacorp_all_accounts(
-    deps: Deps,
-) -> StdResult<Vec<Addr>> {
+pub fn query_capacorp_all_accounts(deps: Deps) -> StdResult<Vec<Addr>> {
     let config: Config = read_config(deps.storage)?;
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.capacorp_contract.into(),
+            contract_addr: config.capacorp_contract,
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
@@ -144,7 +136,7 @@ pub fn calculate_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
-    total_c_ust_supply: Uint256
+    total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
@@ -152,8 +144,8 @@ pub fn calculate_profit(
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
 
-    let res1 = Uint256::from(total_aterra_amount) * exchange_rate;
-    let res2 = Uint256::from(total_c_ust_supply) * capa_exchange_rate;
+    let res1 = total_aterra_amount * exchange_rate;
+    let res2 = total_c_ust_supply * capa_exchange_rate;
     if res1 <= res2 {
         return Ok(Uint256::zero());
     }
@@ -165,7 +157,7 @@ pub fn calculate_aterra_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
-    total_c_ust_supply: Uint256
+    total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
@@ -173,13 +165,36 @@ pub fn calculate_aterra_profit(
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
 
-    let res1 = Uint256::from(total_aterra_amount) * exchange_rate;
-    let res2 = Uint256::from(total_c_ust_supply) * capa_exchange_rate;
+    let res1 = total_aterra_amount * exchange_rate;
+    let res2 = total_c_ust_supply * capa_exchange_rate;
     if res1 <= res2 {
         return Ok(Uint256::zero());
     }
 
-    Ok((res1 - res2) /  exchange_rate)
+    Ok((res1 - res2) / exchange_rate)
+}
+
+pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint256> {
+    let config: Config = read_config(deps.storage)?;
+
+    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
+    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
+
+    let cust_balance = query_token_balance(
+        deps,
+        &deps.api.addr_validate(&config.cterra_contract)?,
+        &deps.api.addr_validate(&account_addr)?,
+    )?;
+    let total_deposit = read_total_deposit(deps.storage, &account_addr)?;
+
+    let mut amount = Uint256::from(0u128);
+    let current_ust = cust_balance * capa_exchange_rate;
+
+    if current_ust > total_deposit {
+        amount = current_ust - total_deposit;
+    }
+
+    Ok(amount)
 }
 
 #[inline]
@@ -189,10 +204,7 @@ fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
     k
 }
 
-pub fn compute_tax(
-    deps: Deps,
-    coin: &Coin,
-) -> StdResult<Uint256> {
+pub fn compute_tax(deps: Deps, coin: &Coin) -> StdResult<Uint256> {
     let terra_querier = TerraQuerier::new(&deps.querier);
     let tax_rate = Decimal256::from((terra_querier.query_tax_rate()?).rate);
     let tax_cap = Uint256::from((terra_querier.query_tax_cap(coin.denom.to_string())?).cap);
@@ -202,10 +214,7 @@ pub fn compute_tax(
         tax_cap,
     ))
 }
-pub fn deduct_tax(
-    deps: Deps,
-    coin: Coin,
-) -> StdResult<Coin> {
+pub fn deduct_tax(deps: Deps, coin: Coin) -> StdResult<Coin> {
     let tax_amount = compute_tax(deps, &coin)?;
     Ok(Coin {
         denom: coin.denom,
