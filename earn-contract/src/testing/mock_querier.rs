@@ -187,6 +187,7 @@ impl WasmMockQuerier {
                     for balance in balances {
                         total_supply += balance.1;
                     }
+                    println!("prefix_token_info");
 
                     SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
                         name: "mAPPL".to_string(),
