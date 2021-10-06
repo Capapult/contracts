@@ -187,8 +187,7 @@ impl WasmMockQuerier {
                     for balance in balances {
                         total_supply += balance.1;
                     }
-                    println!("prefix_token_info");
-
+                    println!("mAPPL");
                     SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
                         name: "mAPPL".to_string(),
                         symbol: "mAPPL".to_string(),
@@ -206,15 +205,19 @@ impl WasmMockQuerier {
                             })
                         }
                     };
+                    println!("mAPPL3");
                     SystemResult::Ok(ContractResult::from(to_binary(
                         &to_binary(&balance).unwrap(),
                     )))
                 } else {
-                    println!("DO NOT ENTER HERE");
+                    println!("mAPPL4");
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            _ => self.base.handle_query(request),
+            _ => {
+                println!("mAPPL5");
+                self.base.handle_query(request)
+            }
         }
     }
 }

@@ -101,7 +101,7 @@ impl Math for Decimal256 {
         let mut xx = x;
         let four_third: Decimal256 = Decimal256::from_ratio(4, 3);
         while xx > four_third {
-            result +=  Decimal256::one();
+            result += Decimal256::one();
             xx = xx / Decimal256::TWO;
         }
         result = result * Decimal256::M_LN2; // n*ln(2)

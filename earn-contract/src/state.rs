@@ -9,6 +9,8 @@ pub static KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";
 pub const KEY_BALANCE: &[u8] = b"balance";
 const PREFIX_PROFIT: &[u8] = b"profit";
+const PREFIX_TOTAL_DEPOSIT: &str = "td_";
+const PREFIX_TOTAL_CLAIM: &str = "tc_";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
@@ -54,7 +56,7 @@ pub fn read_profit(storage: &dyn Storage) -> StdResult<Uint256> {
 }
 
 fn get_total_deposit_key(account_addr: String) -> String {
-    let mut str_key: String = String::from("td_");
+    let mut str_key: String = String::from(PREFIX_TOTAL_DEPOSIT);
     str_key.push_str(account_addr.as_str());
     str_key
 }
@@ -69,8 +71,42 @@ pub fn store_total_deposit(
     Singleton::new(storage, key).save(deposit)
 }
 
-pub fn read_total_deposit(storage: &dyn Storage, account_addr: &str) -> StdResult<Uint256> {
+pub fn read_total_deposit(storage: &dyn Storage, account_addr: &str) -> Uint256 {    
     let str_key = get_total_deposit_key(String::from(account_addr));
     let key: &[u8] = str_key.as_bytes();
-    ReadonlySingleton::new(storage, key).load()
+    let res = ReadonlySingleton::new(storage, key).load();
+    let mut current_deposit = Uint256::from(0u128);
+    match res {
+        Ok(x) => current_deposit = x,
+        Err(_x) => {}
+    }
+    current_deposit
+}
+
+fn get_total_claim_key(account_addr: String) -> String {
+    let mut str_key: String = String::from(PREFIX_TOTAL_CLAIM);
+    str_key.push_str(account_addr.as_str());
+    str_key
+}
+
+pub fn store_total_claim(
+    storage: &mut dyn Storage,
+    account_addr: &str,
+    deposit: &Uint256,
+) -> StdResult<()> {
+    let str_key = get_total_claim_key(String::from(account_addr));
+    let key: &[u8] = str_key.as_bytes();
+    Singleton::new(storage, key).save(deposit)
+}
+
+pub fn read_total_claim(storage: &dyn Storage, account_addr: &str) -> Uint256 {    
+    let str_key = get_total_claim_key(String::from(account_addr));
+    let key: &[u8] = str_key.as_bytes();
+    let res = ReadonlySingleton::new(storage, key).load();
+    let mut current_claim = Uint256::from(0u128);
+    match res {
+        Ok(x) => current_claim = x,
+        Err(_x) => {}
+    }
+    current_claim
 }

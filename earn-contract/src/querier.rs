@@ -5,7 +5,7 @@ use crate::msg::{
     Account, AllAccountsResponse, DashboardResponse, MarketStateResponse, QueryStateMsg,
     TokenInfoResponse,
 };
-use crate::state::{read_config, read_profit, read_total_deposit, Config};
+use crate::state::{read_config, read_profit, read_total_deposit, Config, read_total_claim};
 
 use cosmwasm_std::{
     from_binary, to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
@@ -22,8 +22,8 @@ pub fn query_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
-     let prev_exchange_rate = market_state?.prev_exchange_rate; 
-     Ok(prev_exchange_rate)
+    let prev_exchange_rate = market_state?.prev_exchange_rate;
+    Ok(prev_exchange_rate)
 }
 
 pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
@@ -34,7 +34,7 @@ pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
-    let exchange_rate = ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate)?;     
+    let exchange_rate = ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate)?;
     Ok(exchange_rate)
 }
 
@@ -80,7 +80,7 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
-        println!("query_dashboard 4");
+    println!("query_dashboard 4");
     let current_profit = calculate_profit(
         deps,
         &deps.api.addr_validate(&config.contract_addr)?,
@@ -104,7 +104,7 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
-        println!("query_dashboard 8");
+    println!("query_dashboard 8");
     total_value_locked = total_value_locked * market_state.prev_exchange_rate;
 
     let cust_nb_accounts = Uint256::from(all_accounts.accounts.len() as u128);
@@ -190,16 +190,17 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
         &deps.api.addr_validate(&config.cterra_contract)?,
         &deps.api.addr_validate(&account_addr)?,
     )?;
-    let total_deposit = read_total_deposit(deps.storage, &account_addr)?;
+    let total_deposit = read_total_deposit(deps.storage, &account_addr);
+    let current_claim = read_total_claim(deps.storage, &account_addr);
 
-    let mut amount = Uint256::from(0u128);
     let current_ust = cust_balance * capa_exchange_rate;
-
-    if current_ust > total_deposit {
-        amount = current_ust - total_deposit;
-    }
+    let amount = current_ust - total_deposit - current_claim;
 
     Ok(amount)
+}
+
+pub fn query_harvested_sum(deps: Deps, account_addr: String) -> StdResult<Uint256> {
+    Ok(read_total_claim(deps.storage, &account_addr))
 }
 
 #[inline]

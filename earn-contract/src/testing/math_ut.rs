@@ -64,9 +64,9 @@ mod tests {
             "1.00000000000",
             ExchangeRate::invert_a_terra_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::one()).unwrap()
-                
             )
-            .unwrap().to_string()
+            .unwrap()
+            .to_string()
             .get(0..13)
             .unwrap()
         );
@@ -75,7 +75,8 @@ mod tests {
             ExchangeRate::invert_a_terra_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(3, 2)).unwrap()
             )
-            .unwrap().to_string()
+            .unwrap()
+            .to_string()
             .get(0..13)
             .unwrap()
         );

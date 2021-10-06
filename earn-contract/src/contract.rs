@@ -1,10 +1,10 @@
-use crate::deposit::{deposit, harvest, redeem_stable};
+use crate::deposit::{deposit, redeem_stable};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, TokenInfoResponse,
 };
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_dashboard, query_harvest_value, query_token_balance,
+    query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
 };
 use crate::state::{
     read_config, read_profit, store_config, store_profit, store_state, Config, State,
@@ -37,8 +37,7 @@ pub fn instantiate(
     if initial_deposit != INITIAL_DEPOSIT_AMOUNT.into() {
         return Err(StdError::generic_err(format!(
             "Must deposit initial funds {:?}{:?}",
-            INITIAL_DEPOSIT_AMOUNT,
-            msg.stable_denom
+            INITIAL_DEPOSIT_AMOUNT, msg.stable_denom
         )));
     }
     store_profit(deps.storage, &Uint256::zero())?;
@@ -96,7 +95,6 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::Distribute {} => distribute(deps, env, info),
         ExecuteMsg::Deposit {} => deposit(deps, info),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
-        ExecuteMsg::Harvest {} => harvest(deps.as_ref(), info),
     }
 }
 
@@ -186,6 +184,7 @@ pub fn update_config(
     store_config(deps.storage, &config)?;
     Ok(Response::new().add_attribute("action", "update_config"))
 }
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
@@ -193,8 +192,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
         QueryMsg::Dashboard {} => to_binary(&query_dashboard(deps)?),
         QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)?),
-        QueryMsg::HarvestValue { account_addr } => {
+        QueryMsg::AvailableHarvest { account_addr } => {
             to_binary(&query_harvest_value(deps, account_addr)?)
+        }
+        QueryMsg::HarvestedSum { account_addr } => {
+            to_binary(&query_harvested_sum(deps, account_addr)?)
         }
     }
 }
@@ -242,7 +244,7 @@ fn transfer_capacorp(
             &deps.api.addr_validate(&config.capacorp_contract)?,
             &stake_holder,
         )?;
-        let share = profit_amount * percent * Decimal256::from_ratio(1, 100);
+        let share = profit_amount * percent * Decimal256::from_ratio(1, 100000);
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
             contract_addr: config.aterra_contract.clone(),
             funds: vec![],
@@ -269,7 +271,7 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
         return Err(StdError::generic_err("Unauthorized"));
     }
 
-    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    let res = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: config.cterra_contract.clone(),
         key: Binary::from(to_length_prefixed(b"token_info")),
     }))?;

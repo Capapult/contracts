@@ -39,7 +39,6 @@ pub enum ExecuteMsg {
     /// Deposit stable asset to get interest
     Deposit {},
     Receive(Cw20ReceiveMsg),
-    Harvest {},
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
@@ -60,7 +59,8 @@ pub enum QueryMsg {
     ExchangeRate {},
     Dashboard {},
     CorpAccounts {},
-    HarvestValue { account_addr: String },
+    AvailableHarvest { account_addr: String },
+    HarvestedSum { account_addr: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

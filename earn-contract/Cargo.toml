@@ -1,6 +1,6 @@
 [package]
 name = "earn-contract"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Bruno <bruno@capapult.finance>"]
 edition = "2018"
 
@@ -33,28 +33,28 @@ backtraces = ["cosmwasm-std/backtraces"]
 [dependencies.serde]
 default-features = false
 features = ["derive"]
-version = "=1.0.127"
+version = "=1.0.130"
 
 
 [dependencies.schemars]
-version = "=0.8.3"
+version = "=0.8.6"
 
 [dependencies.cosmwasm-std]
-version = "=0.16.0"
+version = "=0.16.2"
 
 [dependencies.cosmwasm-storage]
-version = "=0.16.0"
+version = "=0.16.2"
 
 [dependencies]
 snafu = { version = "=0.6.10" }
 base64 = "=0.13.0"
-cw20 = "=0.8.0"
+cw20 = "=0.9.1"
 terra-cosmwasm = "=2.2.0"
 cosmwasm-bignumber = "=2.2.0"
 bigint="=4"
 
 [dev-dependencies]
-cosmwasm-schema = "=0.16.0"
+cosmwasm-schema = "=0.16.2"
 
 [profile.dev]
 overflow-checks = true

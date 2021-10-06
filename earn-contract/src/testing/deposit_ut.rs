@@ -13,6 +13,111 @@ use cosmwasm_std::{
 };
 
 #[test]
+fn instantiate_with_wrong_initial_amount() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(2000000u128),
+    }]);
+    let info = mock_info("addr0000", &[]);
+    //setting up the required infoironment for the function call (inputs)
+    let mock_config = Config {
+        contract_addr: String::from(MOCK_CONTRACT_ADDR),
+        owner_addr: String::from("owner"),
+        aterra_contract: String::from("AT-uusd"),
+        market_contract: String::from("market"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
+    )]);
+
+    let msg = InstantiateMsg {
+        owner_addr: String::from("owner"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT / 2),
+        }],
+    );
+
+    let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg);
+    match res {
+        Ok(msg) => panic!("DO NOT ENTER HERE"),
+        Err(msg) => assert_eq!(
+            "Generic error: Must deposit initial funds 100000000\"uusd\"",
+            msg.to_string()
+        ),
+    }
+}
+
+#[test]
+fn register_contract_with_wrong_owner() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(2000000u128),
+    }]);
+    let info = mock_info("addr0000", &[]);
+    //setting up the required infoironment for the function call (inputs)
+    let mock_config = Config {
+        contract_addr: String::from(MOCK_CONTRACT_ADDR),
+        owner_addr: String::from("owner"),
+        aterra_contract: String::from("AT-uusd"),
+        market_contract: String::from("market"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
+    )]);
+
+    let msg = InstantiateMsg {
+        owner_addr: String::from("owner"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let msg = ExecuteMsg::RegisterContracts {
+        market_contract: String::from("market_contract"),
+        aterra_contract: String::from("aterra_contract"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
+    };
+
+    let info = mock_info("new_owner", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
+    match res {
+        Ok(msg) => panic!("DO NOT ENTER HERE"),
+        Err(msg) => assert_eq!("Generic error: Unauthorized", msg.to_string()),
+    }
+}
+
+#[test]
 fn too_small_deposit() {
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
@@ -184,7 +289,7 @@ fn proper_deposit() {
                 ]
             );
         }
-        Err(msg) => println!("{}", msg),
+        Err(msg) => panic!("DO NOT ENTER HERE"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
@@ -284,7 +389,7 @@ fn withdraw_too_much() {
                 ]
             );
         }
-        Err(msg) => println!("{}", msg),
+        Err(msg) => panic!("DO NOT ENTER HERE"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -408,7 +513,7 @@ fn withdraw_too_little() {
                 ]
             );
         }
-        Err(msg) => println!("{}", msg),
+        Err(msg) => panic!("DO NOT ENTER HERE"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
@@ -526,7 +631,7 @@ fn proper_withdraw() {
                 ]
             );
         }
-        Err(msg) => println!("{}", msg),
+        Err(msg) => panic!("DO NOT ENTER HERE"),
         _ => panic!("DO NOT ENTER HERE"),
     }
 
