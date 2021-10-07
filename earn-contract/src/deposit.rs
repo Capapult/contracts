@@ -90,7 +90,6 @@ pub fn redeem_stable(
 
     let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
 
-    let aust_burn_amount = withdraw_amount / exchange_rate;
 
     let tax_amount = compute_tax(
         deps.as_ref(),
@@ -115,6 +114,8 @@ pub fn redeem_stable(
             config.stable_denom,
         )));
     }
+
+    let aust_burn_amount = withdraw_amount / exchange_rate;
 
     let current_balance = query_token_balance(
         deps.as_ref(),

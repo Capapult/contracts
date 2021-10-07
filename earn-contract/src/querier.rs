@@ -8,7 +8,7 @@ use crate::msg::{
 use crate::state::{read_config, read_profit, read_total_deposit, Config, read_total_claim};
 
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
+    to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery
 };
 
 use cosmwasm_storage::to_length_prefixed;
@@ -45,66 +45,66 @@ pub fn query_token_balance(
 ) -> StdResult<Uint256> {
     // load balance form the token contract
     let account: String = account_addr.into();
-    let res: Binary = deps
+    let tmp_key = concat(
+        &to_length_prefixed(b"balance").to_vec(),
+        deps.api.addr_canonicalize(&account)?.as_slice(),
+    );
+    
+    let balance: Uint128 = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
             contract_addr: contract_addr.into(),
-            key: Binary::from(concat(
-                &to_length_prefixed(b"balance").to_vec(),
-                &account.as_bytes(),
-            )),
+            key: Binary::from(tmp_key),
         }))
-        .unwrap_or_else(|_| to_binary(&Uint128::zero()).unwrap());
+        .unwrap_or_else(|_e| Uint128::zero());
 
-    let balance: Uint128 = from_binary(&res)?;
     Ok(balance.into())
 }
 
 pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
-    println!("query_dashboard 1");
-    let res: Binary = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+    // println!("query_dashboard 1");
+    let token_info: TokenInfoResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
         contract_addr: config.cterra_contract.clone(),
         key: Binary::from(to_length_prefixed(b"token_info")),
     }))?;
 
-    println!("query_dashboard 2");
-    let token_info: TokenInfoResponse = from_binary(&res)?;
+    // println!("query_dashboard 2");
     let cust_total_supply = Uint256::from(token_info.total_supply);
 
-    println!("query_dashboard 3");
+ //   // println!("query_dashboard 3");
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: config.cterra_contract.clone(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
-    println!("query_dashboard 4");
+ //   // println!("query_dashboard 4");
     let current_profit = calculate_profit(
         deps,
         &deps.api.addr_validate(&config.contract_addr)?,
         &deps.api.addr_validate(&config.aterra_contract)?,
         cust_total_supply,
     )?;
-    println!("query_dashboard 5");
+  //  // println!("query_dashboard 5");
     let total_profit: Uint256 = read_profit(deps.storage)?;
 
-    println!("query_dashboard 6");
+  //  // println!("query_dashboard 6");
     let mut total_value_locked: Uint256 = query_token_balance(
         deps,
         &deps.api.addr_validate(&config.aterra_contract)?,
         &deps.api.addr_validate(&config.contract_addr)?,
     )?;
 
-    println!("query_dashboard 7");
+  //  // println!("query_dashboard 7");
     let market_state: MarketStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: config.market_contract,
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
-    println!("query_dashboard 8");
+   // // println!("query_dashboard 8");
     total_value_locked = total_value_locked * market_state.prev_exchange_rate;
 
     let cust_nb_accounts = Uint256::from(all_accounts.accounts.len() as u128);
@@ -114,7 +114,7 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
         cust_avg_balance = Decimal256::from_uint256(cust_total_supply)
             / Decimal256::from_uint256(cust_nb_accounts);
     }
-    println!("query_dashboard 9");
+ //   // println!("query_dashboard 9");
 
     Ok(DashboardResponse {
         total_value_locked,

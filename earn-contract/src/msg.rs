@@ -61,6 +61,7 @@ pub enum QueryMsg {
     CorpAccounts {},
     AvailableHarvest { account_addr: String },
     HarvestedSum { account_addr: String },
+    QueryToken {contract_addr: String, account_addr:String}
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

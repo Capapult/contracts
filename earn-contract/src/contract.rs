@@ -198,6 +198,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::HarvestedSum { account_addr } => {
             to_binary(&query_harvested_sum(deps, account_addr)?)
         }
+        QueryMsg::QueryToken {contract_addr, account_addr} => {            
+            to_binary(&query_token_balance(deps,  &deps.api.addr_validate(contract_addr.as_str())?,  &deps.api.addr_validate(account_addr.as_str())?)?)
+        }
     }
 }
 
