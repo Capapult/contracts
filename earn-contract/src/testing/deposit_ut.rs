@@ -8,9 +8,10 @@ use cosmwasm_std::testing::{
     mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, Coin, Deps, DepsMut, MemoryStorage, StdError, StdResult,
-    Uint128,
+    attr, from_binary, to_binary, Api, Binary, Coin, Deps, DepsMut, MemoryStorage, StdError,
+    StdResult, Uint128,
 };
+use std::str;
 
 #[test]
 fn instantiate_with_wrong_initial_amount() {
@@ -393,6 +394,8 @@ fn withdraw_too_much() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    let canonicalAddr = deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap();
+
     deps.querier.with_token_balances(&[(
         &"aterra_contract".to_string(),
         &[(
@@ -517,12 +520,21 @@ fn withdraw_too_little() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
+    let mock_contract_addr = deps.api.addr_validate(&MOCK_CONTRACT_ADDR).unwrap();
+
+    let mock_contract_canon_addr = deps
+        .api
+        .addr_canonicalize(mock_contract_addr.as_str())
+        .unwrap();
+    let mock_contract_canon_binary = Binary::from(mock_contract_canon_addr.as_slice());
+    let mock_contract_canon =
+        String::from(str::from_utf8(mock_contract_canon_binary.as_slice()).unwrap());
+
+    println!("Adding balance to {}", mock_contract_canon);
+
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
-        &[(
-            &MOCK_CONTRACT_ADDR.to_string(),
-            &Uint128::from(55555554750000u128),
-        )],
+        &[(&mock_contract_canon, &Uint128::from(55555554750000u128))],
     )]);
 
     let sender = deps.api.addr_validate(&"addr0000").unwrap();

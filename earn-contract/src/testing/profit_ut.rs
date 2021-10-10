@@ -246,7 +246,7 @@ fn proper_distribute() {
 /*
 #[test]
 fn test_query_dashboard() {
-    
+
         let mut deps = mock_dependencies(&[Coin {
             denom: "uusd".to_string(),
             amount: Uint128::from(2000000u128),
@@ -358,6 +358,6 @@ fn test_query_dashboard() {
             Err(msg) => println!("{}", msg),
             _ => panic!("DO NOT ENTER HERE"),
         }
-    
+
 }
 */

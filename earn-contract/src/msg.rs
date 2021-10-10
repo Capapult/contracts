@@ -1,5 +1,5 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
-use cosmwasm_std::{Addr, Uint128};
+use cosmwasm_std::{Addr};
 use cw20::Cw20ReceiveMsg;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -59,9 +59,19 @@ pub enum QueryMsg {
     ExchangeRate {},
     Dashboard {},
     CorpAccounts {},
-    AvailableHarvest { account_addr: String },
-    HarvestedSum { account_addr: String },
-    QueryToken {contract_addr: String, account_addr:String}
+    AvailableHarvest {
+        account_addr: String,
+    },
+    HarvestedSum {
+        account_addr: String,
+    },
+    QueryToken {
+        contract_addr: String,
+        account_addr: String,
+    },
+    QueryCustSupply {
+        contract_addr: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -112,17 +122,4 @@ pub struct DashboardResponse {
     pub cust_avg_balance: Decimal256,
     pub current_profit: Uint256,
     pub total_profit: Uint256,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-pub struct TokenInfoResponse {
-    pub name: String,
-    pub symbol: String,
-    pub decimals: u8,
-    pub total_supply: Uint128,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug, Default)]
-pub struct AllAccountsResponse {
-    pub accounts: Vec<Addr>,
 }

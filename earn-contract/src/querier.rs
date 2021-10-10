@@ -2,13 +2,13 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
 use crate::msg::{
-    Account, AllAccountsResponse, DashboardResponse, MarketStateResponse, QueryStateMsg,
-    TokenInfoResponse,
+    Account, DashboardResponse, MarketStateResponse, QueryStateMsg,    
 };
-use crate::state::{read_config, read_profit, read_total_deposit, Config, read_total_claim};
+use cw20::{TokenInfoResponse, AllAccountsResponse};
+use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
 
 use cosmwasm_std::{
-    to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery
+    to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
 };
 
 use cosmwasm_storage::to_length_prefixed;
@@ -45,76 +45,75 @@ pub fn query_token_balance(
 ) -> StdResult<Uint256> {
     // load balance form the token contract
     let account: String = account_addr.into();
-    let tmp_key = concat(
-        &to_length_prefixed(b"balance").to_vec(),
-        deps.api.addr_canonicalize(&account)?.as_slice(),
-    );
-    
     let balance: Uint128 = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Raw {
             contract_addr: contract_addr.into(),
-            key: Binary::from(tmp_key),
+            key: Binary::from(concat(
+                &to_length_prefixed(b"balance").to_vec(),
+                deps.api.addr_canonicalize(&account)?.as_slice(),
+            )),
         }))
         .unwrap_or_else(|_e| Uint128::zero());
 
     Ok(balance.into())
 }
 
+pub fn query_token_supply(deps: Deps, contract_addr: &Addr) -> StdResult<Uint128> {
+    // load balance form the token contract
+    let response: StdResult<TokenInfoResponse> =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
+            contract_addr: contract_addr.into(),
+            key: to_length_prefixed(b"token_info").as_slice().into(),
+        }));
+
+    let token_info = response?;
+    Ok(token_info.total_supply)
+}
 pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
-    // println!("query_dashboard 1");
-    let token_info: TokenInfoResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: config.cterra_contract.clone(),
-        key: Binary::from(to_length_prefixed(b"token_info")),
-    }))?;
+    let cust_total_supply = Uint256::from(query_token_supply(
+        deps,
+        &deps.api.addr_validate(&config.cterra_contract)?,
+    )?);
 
-    // println!("query_dashboard 2");
-    let cust_total_supply = Uint256::from(token_info.total_supply);
-
- //   // println!("query_dashboard 3");
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: config.cterra_contract.clone(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
- //   // println!("query_dashboard 4");
     let current_profit = calculate_profit(
         deps,
         &deps.api.addr_validate(&config.contract_addr)?,
         &deps.api.addr_validate(&config.aterra_contract)?,
         cust_total_supply,
     )?;
-  //  // println!("query_dashboard 5");
+
     let total_profit: Uint256 = read_profit(deps.storage)?;
 
-  //  // println!("query_dashboard 6");
     let mut total_value_locked: Uint256 = query_token_balance(
         deps,
         &deps.api.addr_validate(&config.aterra_contract)?,
         &deps.api.addr_validate(&config.contract_addr)?,
     )?;
 
-  //  // println!("query_dashboard 7");
     let market_state: MarketStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: config.market_contract,
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
-   // // println!("query_dashboard 8");
     total_value_locked = total_value_locked * market_state.prev_exchange_rate;
 
     let cust_nb_accounts = Uint256::from(all_accounts.accounts.len() as u128);
-    let cust_total_supply = Uint256::from(token_info.total_supply);
+
     let mut cust_avg_balance = Decimal256::zero();
     if cust_nb_accounts > Uint256::zero() {
         cust_avg_balance = Decimal256::from_uint256(cust_total_supply)
             / Decimal256::from_uint256(cust_nb_accounts);
     }
- //   // println!("query_dashboard 9");
 
     Ok(DashboardResponse {
         total_value_locked,
@@ -126,7 +125,7 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     })
 }
 
-pub fn query_capacorp_all_accounts(deps: Deps) -> StdResult<Vec<Addr>> {
+pub fn query_capacorp_all_accounts(deps: Deps) -> StdResult<Vec<String>> {
     let config: Config = read_config(deps.storage)?;
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -194,9 +193,13 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
     let current_claim = read_total_claim(deps.storage, &account_addr);
 
     let current_ust = cust_balance * capa_exchange_rate;
-    let amount = current_ust - total_deposit - current_claim;
+    let sum_deposit_claim = total_deposit + current_claim;
 
-    Ok(amount)
+    if current_ust > sum_deposit_claim {
+        return Ok(current_ust - sum_deposit_claim);
+    }
+
+    Ok(Uint256::from(0u128))
 }
 
 pub fn query_harvested_sum(deps: Deps, account_addr: String) -> StdResult<Uint256> {

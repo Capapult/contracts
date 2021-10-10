@@ -1,10 +1,9 @@
 use crate::deposit::{deposit, redeem_stable};
-use crate::msg::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, TokenInfoResponse,
-};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
     query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
+    query_token_supply,
 };
 use crate::state::{
     read_config, read_profit, store_config, store_profit, store_state, Config, State,
@@ -12,9 +11,8 @@ use crate::state::{
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
     attr, entry_point, from_binary, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps, DepsMut,
-    Env, MessageInfo, QueryRequest, Response, StdError, StdResult, Uint128, WasmMsg, WasmQuery,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
-use cosmwasm_storage::to_length_prefixed;
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 pub const _1M_: u128 = 1000000;
@@ -198,9 +196,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::HarvestedSum { account_addr } => {
             to_binary(&query_harvested_sum(deps, account_addr)?)
         }
-        QueryMsg::QueryToken {contract_addr, account_addr} => {            
-            to_binary(&query_token_balance(deps,  &deps.api.addr_validate(contract_addr.as_str())?,  &deps.api.addr_validate(account_addr.as_str())?)?)
-        }
+        QueryMsg::QueryToken {
+            contract_addr,
+            account_addr,
+        } => to_binary(&query_token_balance(
+            deps,
+            &deps.api.addr_validate(contract_addr.as_str())?,
+            &deps.api.addr_validate(account_addr.as_str())?,
+        )?),
+        QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_token_supply(
+            deps,
+            &deps.api.addr_validate(contract_addr.as_str())?,
+        )?),
     }
 }
 
@@ -245,7 +252,7 @@ fn transfer_capacorp(
         let percent = query_token_balance(
             deps.as_ref(),
             &deps.api.addr_validate(&config.capacorp_contract)?,
-            &stake_holder,
+            &deps.api.addr_validate(&stake_holder)?,
         )?;
         let share = profit_amount * percent * Decimal256::from_ratio(1, 100000);
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
@@ -274,13 +281,10 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
         return Err(StdError::generic_err("Unauthorized"));
     }
 
-    let res = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-        contract_addr: config.cterra_contract.clone(),
-        key: Binary::from(to_length_prefixed(b"token_info")),
-    }))?;
-
-    let token_info: TokenInfoResponse = from_binary(&res)?;
-    let cust_total_supply = Uint256::from(token_info.total_supply);
+    let cust_total_supply = Uint256::from(query_token_supply(
+        deps.as_ref(),
+        &deps.api.addr_validate(&config.cterra_contract)?,
+    )?);
 
     let mut profit = calculate_aterra_profit(
         deps.as_ref(),

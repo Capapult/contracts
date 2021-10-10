@@ -71,7 +71,7 @@ pub fn store_total_deposit(
     Singleton::new(storage, key).save(deposit)
 }
 
-pub fn read_total_deposit(storage: &dyn Storage, account_addr: &str) -> Uint256 {    
+pub fn read_total_deposit(storage: &dyn Storage, account_addr: &str) -> Uint256 {
     let str_key = get_total_deposit_key(String::from(account_addr));
     let key: &[u8] = str_key.as_bytes();
     let res = ReadonlySingleton::new(storage, key).load();
@@ -99,7 +99,7 @@ pub fn store_total_claim(
     Singleton::new(storage, key).save(deposit)
 }
 
-pub fn read_total_claim(storage: &dyn Storage, account_addr: &str) -> Uint256 {    
+pub fn read_total_claim(storage: &dyn Storage, account_addr: &str) -> Uint256 {
     let str_key = get_total_claim_key(String::from(account_addr));
     let key: &[u8] = str_key.as_bytes();
     let res = ReadonlySingleton::new(storage, key).load();

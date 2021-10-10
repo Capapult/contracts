@@ -1,12 +1,14 @@
 use crate::msg::{DepositStableHandleMsg, RedeemStableHookMsg};
 use crate::querier::{
-    compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance
+    compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
 };
-use crate::state::{read_config, read_total_deposit, store_total_deposit, Config, store_total_claim};
+use crate::state::{
+    read_config, read_total_deposit, store_total_claim, store_total_deposit, Config,
+};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, Uint128, WasmMsg,
+    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -45,10 +47,12 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
 
     let sender = info.sender.into_string();
     let mut current_deposit = read_total_deposit(deps.storage, sender.as_str());
-    if deposit_amount > Uint256::from(0u128) {
-        current_deposit += deposit_amount;
-        store_total_deposit(deps.storage, sender.as_str(), &current_deposit)?;
+    if current_deposit == Uint256::from(0u128) {
+        store_total_claim(deps.storage, sender.as_str(), &Uint256::from(0u128))?;
     }
+
+    current_deposit += deposit_amount;
+    store_total_deposit(deps.storage, sender.as_str(), &current_deposit)?;
 
     Ok(Response::new()
         .add_messages(vec![
@@ -90,7 +94,6 @@ pub fn redeem_stable(
 
     let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
 
-
     let tax_amount = compute_tax(
         deps.as_ref(),
         &Coin {
@@ -126,17 +129,25 @@ pub fn redeem_stable(
     // Assert redeem amount
     assert_redeem_amount(&config, current_balance, aust_burn_amount)?;
 
-    let mut current_deposit = read_total_deposit(deps.storage, sender.as_str());
     let cust_balance = query_token_balance(
         deps.as_ref(),
         &deps.as_ref().api.addr_validate(&config.cterra_contract)?,
         &sender,
     )?;
-    let user_claim = (cust_balance * capa_exchange_rate - current_deposit).into();
+
+    let mut current_deposit = read_total_deposit(deps.storage, sender.as_str());
+    let user_claim: Uint256;
+
+    if cust_balance * capa_exchange_rate > current_deposit {
+        user_claim = cust_balance * capa_exchange_rate - current_deposit;
+    } else {
+        user_claim = Uint256::from(0u128);
+    }
+
     store_total_claim(deps.storage, sender.as_str(), &user_claim)?;
 
     let amount = Uint256::from(withdraw_amount);
-    if  current_deposit > amount {
+    if current_deposit > amount {
         current_deposit = current_deposit - amount;
     } else {
         current_deposit = Uint256::from(0u128);
@@ -193,4 +204,3 @@ fn assert_redeem_amount(
 
     Ok(())
 }
-

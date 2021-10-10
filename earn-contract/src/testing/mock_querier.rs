@@ -171,6 +171,7 @@ impl WasmMockQuerier {
             }
             QueryRequest::Wasm(WasmQuery::Raw { contract_addr, key }) => {
                 let key: &[u8] = key.as_slice();
+                let address: &str = str::from_utf8(key).unwrap();
 
                 let prefix_token_info = to_length_prefixed(b"token_info").to_vec();
                 let prefix_balance = to_length_prefixed(b"balance").to_vec();
@@ -187,7 +188,7 @@ impl WasmMockQuerier {
                     for balance in balances {
                         total_supply += balance.1;
                     }
-                    println!("mAPPL");
+
                     SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
                         name: "mAPPL".to_string(),
                         symbol: "mAPPL".to_string(),
@@ -196,28 +197,31 @@ impl WasmMockQuerier {
                     })))
                 } else if key[..prefix_balance.len()].to_vec() == prefix_balance {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
-                    let balance = match balances.get(str::from_utf8(key_address).unwrap()) {
-                        Some(v) => v,
+                    let address: &str = str::from_utf8(key_address).unwrap();
+
+                    println!("mock_querier: address: {}", address);
+                    let balance = match balances.get(address) {
+                        Some(v) => {
+                            println!("mock_querier: {}", v);
+                            v
+                        }
                         None => {
+                            println!("mock_querier: err");
                             return SystemResult::Err(SystemError::InvalidRequest {
                                 error: "Balance not found".to_string(),
                                 request: key.into(),
-                            })
+                            });
                         }
                     };
-                    println!("mAPPL3");
+
                     SystemResult::Ok(ContractResult::from(to_binary(
                         &to_binary(&balance).unwrap(),
                     )))
                 } else {
-                    println!("mAPPL4");
                     panic!("DO NOT ENTER HERE")
                 }
             }
-            _ => {
-                println!("mAPPL5");
-                self.base.handle_query(request)
-            }
+            _ => self.base.handle_query(request),
         }
     }
 }
