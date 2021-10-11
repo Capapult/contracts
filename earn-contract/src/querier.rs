@@ -1,17 +1,13 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
-use crate::msg::{
-    Account, DashboardResponse, MarketStateResponse, QueryStateMsg,    
-};
-use cw20::{TokenInfoResponse, AllAccountsResponse};
+use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg};
 use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
+use cw20::{AllAccountsResponse, Cw20QueryMsg};
 
-use cosmwasm_std::{
-    to_binary, Addr, Binary, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
-};
+use cosmwasm_std::{to_binary, Addr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery};
 
-use cosmwasm_storage::to_length_prefixed;
+use moneymarket::querier::{query_supply};
 use terra_cosmwasm::TerraQuerier;
 
 pub fn query_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
@@ -44,39 +40,33 @@ pub fn query_token_balance(
     account_addr: &Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let account: String = account_addr.into();
     let balance: Uint128 = deps
         .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: contract_addr.into(),
-            key: Binary::from(concat(
-                &to_length_prefixed(b"balance").to_vec(),
-                deps.api.addr_canonicalize(&account)?.as_slice(),
-            )),
+        .query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::Balance {
+                address: account_addr.to_string(),
+            })?,
         }))
-        .unwrap_or_else(|_e| Uint128::zero());
-
+        .unwrap_or_else(|_| Uint128::zero());
     Ok(balance.into())
 }
+/*
+pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
+    let token_info: TokenInfoResponse =
+        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+            contract_addr: contract_addr.to_string(),
+            msg: to_binary(&Cw20QueryMsg::TokenInfo {})?,
+        }))?;
 
-pub fn query_token_supply(deps: Deps, contract_addr: &Addr) -> StdResult<Uint128> {
-    // load balance form the token contract
-    let response: StdResult<TokenInfoResponse> =
-        deps.querier.query(&QueryRequest::Wasm(WasmQuery::Raw {
-            contract_addr: contract_addr.into(),
-            key: to_length_prefixed(b"token_info").as_slice().into(),
-        }));
+    Ok(Uint256::from(token_info.total_supply))
+}*/
 
-    let token_info = response?;
-    Ok(token_info.total_supply)
-}
 pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
-    let cust_total_supply = Uint256::from(query_token_supply(
-        deps,
-        &deps.api.addr_validate(&config.cterra_contract)?,
-    )?);
+    let cust_total_supply =
+        query_supply(deps, deps.api.addr_validate(&config.cterra_contract)?)?;
 
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -204,13 +194,6 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
 
 pub fn query_harvested_sum(deps: Deps, account_addr: String) -> StdResult<Uint256> {
     Ok(read_total_claim(deps.storage, &account_addr))
-}
-
-#[inline]
-fn concat(namespace: &[u8], key: &[u8]) -> Vec<u8> {
-    let mut k = namespace.to_vec();
-    k.extend_from_slice(key);
-    k
 }
 
 pub fn compute_tax(deps: Deps, coin: &Coin) -> StdResult<Uint256> {
