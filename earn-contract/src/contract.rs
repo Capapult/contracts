@@ -2,10 +2,9 @@ use crate::deposit::{deposit, redeem_stable};
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_dashboard, query_harvest_value, query_harvested_sum,     query_token_balance
+    query_dashboard, query_harvest_value, query_harvested_sum,     query_token_balance, query_token_supply
 };
 
-use moneymarket::querier::{query_supply};
 use crate::state::{
     read_config, read_profit, store_config, store_profit, store_state, Config, State,
 };
@@ -205,7 +204,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             &deps.api.addr_validate(contract_addr.as_str())?,
             &deps.api.addr_validate(account_addr.as_str())?,
         )?),
-        QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_supply(
+        QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_token_supply(
             deps,
             deps.api.addr_validate(contract_addr.as_str())?,
         )?),
@@ -282,7 +281,7 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
         return Err(StdError::generic_err("Unauthorized"));
     }
 
-    let cust_total_supply = query_supply(
+    let cust_total_supply = query_token_supply(
         deps.as_ref(),
         deps.api.addr_validate(&config.cterra_contract)?,
     )?;

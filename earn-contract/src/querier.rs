@@ -3,11 +3,10 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use crate::math::*;
 use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg};
 use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
-use cw20::{AllAccountsResponse, Cw20QueryMsg};
+use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse};
 
 use cosmwasm_std::{to_binary, Addr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery};
 
-use moneymarket::querier::{query_supply};
 use terra_cosmwasm::TerraQuerier;
 
 pub fn query_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
@@ -51,7 +50,7 @@ pub fn query_token_balance(
         .unwrap_or_else(|_| Uint128::zero());
     Ok(balance.into())
 }
-/*
+
 pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
     let token_info: TokenInfoResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -60,13 +59,13 @@ pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256>
         }))?;
 
     Ok(Uint256::from(token_info.total_supply))
-}*/
+}
 
 pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
     let cust_total_supply =
-        query_supply(deps, deps.api.addr_validate(&config.cterra_contract)?)?;
+    query_token_supply(deps, deps.api.addr_validate(&config.cterra_contract)?)?;
 
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {

@@ -46,7 +46,6 @@ version = "=0.16.0"
 version = "=0.16.0"
 
 [dependencies]
-moneymarket = { path = "./packages/moneymarket", default-features = false, version = "0.3.0"}
 snafu = { version = "=0.6.10" }
 base64 = "=0.13.0"
 cw20 = "=0.8.0"
