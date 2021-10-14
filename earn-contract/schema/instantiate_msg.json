@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InstantiateMsg",
+  "type": "object",
+  "required": [
+    "owner_addr",
+    "stable_denom"
+  ],
+  "properties": {
+    "owner_addr": {
+      "description": "Owner address for config update",
+      "type": "string"
+    },
+    "stable_denom": {
+      "description": "stable coin denom used to borrow & repay",
+      "type": "string"
+    }
+  }
+}
