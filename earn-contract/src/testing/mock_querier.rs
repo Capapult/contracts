@@ -22,6 +22,9 @@ pub enum QueryMsg {
     /// Query overseer config to get target deposit rate
     Config {},
     State {},
+    /// Query cw20 Token Info
+    TokenInfo {},
+    Balance {address: String},
 }
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
 /// this uses our CustomQuerier.
@@ -144,13 +147,13 @@ impl WasmMockQuerier {
                 match from_binary(&msg).unwrap() {
                     QueryMsg::Config {} => {
                         SystemResult::Ok(ContractResult::from(to_binary(&ConfigResponse {
-                            owner_addr: "".to_string(),
-                            aterra_contract: "".to_string(),
-                            market_contract: "".to_string(),
-                            cterra_contract: "".to_string(),
-                            capa_contract: "".to_string(),
-                            capacorp_contract: "".to_string(),
-                            insurance_contract: "".to_string(),
+                            owner_addr: String::from(""),
+                            aterra_contract: String::from(""),
+                            market_contract: String::from(""),
+                            cterra_contract: String::from(""),
+                            capa_contract: String::from(""),
+                            capacorp_contract: String::from(""),
+                            insurance_contract: String::from(""),
                             stable_denom: "uusd".to_string(),
                         })))
                     }
@@ -165,6 +168,48 @@ impl WasmMockQuerier {
                             anc_emission_rate: Decimal256::zero(),
                             prev_aterra_supply: Uint256::zero(),
                             prev_exchange_rate: Decimal256::one(),
+                        })))
+                    }
+                    QueryMsg::Balance {address} => {
+                        let balances: HashMap<String, Uint128> =
+                            match self.token_querier.balances.get(contract_addr) {
+                                Some(balances) => balances.clone(),
+                                None => HashMap::new(),
+                            };
+                        let balance = match balances.get(&address) {
+                            Some(v) => {
+                                println!("mock_querier: {}", v);
+                                v
+                            }
+                            None => {
+                                println!("mock_querier: err");
+                                return SystemResult::Err(SystemError::InvalidRequest {
+                                    error: "Balance not found".to_string(),
+                                    request: to_binary(&address).unwrap(),
+                                });
+                            }
+                        };
+    
+                        SystemResult::Ok(ContractResult::from(to_binary(&balance)))
+                    }
+                    QueryMsg::TokenInfo {} => {
+                        let balances: HashMap<String, Uint128> =
+                            match self.token_querier.balances.get(contract_addr) {
+                                Some(balances) => balances.clone(),
+                                None => HashMap::new(),
+                            };
+
+                        let mut total_supply = Uint128::zero();
+
+                        for balance in balances {
+                            total_supply += balance.1;
+                        }
+
+                        SystemResult::Ok(ContractResult::from(to_binary(&TokenInfoResponse {
+                            name: "mAPPL".to_string(),
+                            symbol: "mAPPL".to_string(),
+                            decimals: 6,
+                            total_supply,
                         })))
                     }
                 }
@@ -199,14 +244,9 @@ impl WasmMockQuerier {
                     let key_address: &[u8] = &key[prefix_balance.len()..];
                     let address: &str = str::from_utf8(key_address).unwrap();
 
-                    println!("mock_querier: address: {}", address);
                     let balance = match balances.get(address) {
-                        Some(v) => {
-                            println!("mock_querier: {}", v);
-                            v
-                        }
+                        Some(v) => v,
                         None => {
-                            println!("mock_querier: err");
                             return SystemResult::Err(SystemError::InvalidRequest {
                                 error: "Balance not found".to_string(),
                                 request: key.into(),
@@ -214,9 +254,7 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(
-                        &to_binary(&balance).unwrap(),
-                    )))
+                    SystemResult::Ok(ContractResult::from(to_binary(&balance)))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }

@@ -2,26 +2,28 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{StdResult, Storage};
-use cosmwasm_storage::{ReadonlyPrefixedStorage, ReadonlySingleton, Singleton};
+use cosmwasm_std::{CanonicalAddr, StdResult, Storage};
+use cosmwasm_storage::{
+    bucket, bucket_read, ReadonlyPrefixedStorage, ReadonlySingleton, Singleton,
+};
 
 pub static KEY_CONFIG: &[u8] = b"config";
 pub const KEY_STATE: &[u8] = b"state";
 pub const KEY_BALANCE: &[u8] = b"balance";
 const PREFIX_PROFIT: &[u8] = b"profit";
-const PREFIX_TOTAL_DEPOSIT: &str = "td_";
-const PREFIX_TOTAL_CLAIM: &str = "tc_";
+const PREFIX_TOTAL_DEPOSIT: &[u8] = b"td_";
+const PREFIX_TOTAL_CLAIM: &[u8] = b"tc_";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Config {
-    pub contract_addr: String,
-    pub owner_addr: String,
-    pub market_contract: String,
-    pub aterra_contract: String,
-    pub cterra_contract: String,
-    pub capacorp_contract: String,
-    pub capa_contract: String,
-    pub insurance_contract: String,
+    pub contract_addr: CanonicalAddr,
+    pub owner_addr: CanonicalAddr,
+    pub market_contract: CanonicalAddr,
+    pub aterra_contract: CanonicalAddr,
+    pub cterra_contract: CanonicalAddr,
+    pub capacorp_contract: CanonicalAddr,
+    pub capa_contract: CanonicalAddr,
+    pub insurance_contract: CanonicalAddr,
     pub stable_denom: String,
 }
 
@@ -55,58 +57,34 @@ pub fn read_profit(storage: &dyn Storage) -> StdResult<Uint256> {
     ReadonlySingleton::new(storage, PREFIX_PROFIT).load()
 }
 
-fn get_total_deposit_key(account_addr: String) -> String {
-    let mut str_key: String = String::from(PREFIX_TOTAL_DEPOSIT);
-    str_key.push_str(account_addr.as_str());
-    str_key
-}
-
 pub fn store_total_deposit(
     storage: &mut dyn Storage,
-    account_addr: &str,
+    account_addr: &CanonicalAddr,
     deposit: &Uint256,
 ) -> StdResult<()> {
-    let str_key = get_total_deposit_key(String::from(account_addr));
-    let key: &[u8] = str_key.as_bytes();
-    Singleton::new(storage, key).save(deposit)
+    bucket(storage, PREFIX_TOTAL_DEPOSIT).save(account_addr.as_slice(), deposit)
 }
 
-pub fn read_total_deposit(storage: &dyn Storage, account_addr: &str) -> Uint256 {
-    let str_key = get_total_deposit_key(String::from(account_addr));
-    let key: &[u8] = str_key.as_bytes();
-    let res = ReadonlySingleton::new(storage, key).load();
+pub fn read_total_deposit(storage: &dyn Storage, account_addr: &CanonicalAddr) -> Uint256 {
     let mut current_deposit = Uint256::from(0u128);
-    match res {
-        Ok(x) => current_deposit = x,
-        Err(_x) => {}
+    if let Ok(x) = bucket_read(storage, PREFIX_TOTAL_DEPOSIT).load(account_addr.as_slice()) {
+        current_deposit = x
     }
     current_deposit
 }
 
-fn get_total_claim_key(account_addr: String) -> String {
-    let mut str_key: String = String::from(PREFIX_TOTAL_CLAIM);
-    str_key.push_str(account_addr.as_str());
-    str_key
-}
-
 pub fn store_total_claim(
     storage: &mut dyn Storage,
-    account_addr: &str,
+    account_addr: &CanonicalAddr,
     deposit: &Uint256,
 ) -> StdResult<()> {
-    let str_key = get_total_claim_key(String::from(account_addr));
-    let key: &[u8] = str_key.as_bytes();
-    Singleton::new(storage, key).save(deposit)
+    bucket(storage, PREFIX_TOTAL_CLAIM).save(account_addr.as_slice(), deposit)
 }
 
-pub fn read_total_claim(storage: &dyn Storage, account_addr: &str) -> Uint256 {
-    let str_key = get_total_claim_key(String::from(account_addr));
-    let key: &[u8] = str_key.as_bytes();
-    let res = ReadonlySingleton::new(storage, key).load();
+pub fn read_total_claim(storage: &dyn Storage, account_addr: &CanonicalAddr) -> Uint256 {
     let mut current_claim = Uint256::from(0u128);
-    match res {
-        Ok(x) => current_claim = x,
-        Err(_x) => {}
+    if let Ok(x) = bucket_read(storage, PREFIX_TOTAL_CLAIM).load(account_addr.as_slice()) {
+        current_claim = x
     }
     current_claim
 }

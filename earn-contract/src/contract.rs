@@ -2,7 +2,8 @@ use crate::deposit::{deposit, redeem_stable};
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_dashboard, query_harvest_value, query_harvested_sum,     query_token_balance, query_token_supply
+    query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
+    query_token_supply,
 };
 
 use crate::state::{
@@ -10,8 +11,8 @@ use crate::state::{
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, entry_point, from_binary, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps, DepsMut,
-    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, entry_point, from_binary, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg,
+    Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
@@ -53,15 +54,15 @@ pub fn instantiate(
     store_config(
         deps.storage,
         &Config {
-            contract_addr: env.contract.address.into(),
-            owner_addr: msg.owner_addr,
+            contract_addr: deps.api.addr_canonicalize(env.contract.address.as_str())?,
+            owner_addr: deps.api.addr_canonicalize(&msg.owner_addr)?,
             stable_denom: msg.stable_denom,
-            market_contract: String::from(""),
-            aterra_contract: String::from(""),
-            cterra_contract: String::from(""),
-            capacorp_contract: String::from(""),
-            capa_contract: String::from(""),
-            insurance_contract: String::from(""),
+            market_contract: CanonicalAddr::from(vec![]),
+            aterra_contract: CanonicalAddr::from(vec![]),
+            cterra_contract: CanonicalAddr::from(vec![]),
+            capacorp_contract: CanonicalAddr::from(vec![]),
+            capa_contract: CanonicalAddr::from(vec![]),
+            insurance_contract: CanonicalAddr::from(vec![]),
         },
     )?;
 
@@ -109,7 +110,7 @@ pub fn receive_cw20(
         RedeemStableHookMsg::RedeemStable {} => {
             // only asset contract can execute this message
             let config: Config = read_config(deps.storage)?;
-            if contract_addr != config.cterra_contract {
+            if deps.api.addr_canonicalize(contract_addr.as_str())? != config.cterra_contract {
                 return Err(StdError::generic_err("Unauthorized"));
             }
             let sender = deps.api.addr_validate(&cw20_msg.sender)?;
@@ -129,18 +130,18 @@ pub fn register_contracts(
     insurance_contract: &str,
 ) -> StdResult<Response> {
     let mut config: Config = read_config(deps.storage)?;
-    if !config.aterra_contract.is_empty()
-        || !config.market_contract.is_empty()
-        || !config.cterra_contract.is_empty()
-        || !config.capacorp_contract.is_empty()
-        || !config.capa_contract.is_empty()
-        || !config.insurance_contract.is_empty()
+    if config.aterra_contract != CanonicalAddr::from(vec![])
+        || config.market_contract != CanonicalAddr::from(vec![])
+        || config.cterra_contract != CanonicalAddr::from(vec![])
+        || config.capacorp_contract != CanonicalAddr::from(vec![])
+        || config.capa_contract != CanonicalAddr::from(vec![])
+        || config.insurance_contract != CanonicalAddr::from(vec![])
     {
         return Err(StdError::generic_err("Unauthorized"));
     }
 
     // permission check
-    if info.sender != config.owner_addr {
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
         return Err(StdError::generic_err("Unauthorized"));
     }
 
@@ -151,12 +152,12 @@ pub fn register_contracts(
     deps.api.addr_validate(&capa_contract)?;
     deps.api.addr_validate(&insurance_contract)?;
 
-    config.market_contract = String::from(market_contract);
-    config.aterra_contract = String::from(aterra_contract);
-    config.cterra_contract = String::from(cterra_contract);
-    config.capacorp_contract = String::from(capacorp_contract);
-    config.capa_contract = String::from(capa_contract);
-    config.insurance_contract = String::from(insurance_contract);
+    config.market_contract = deps.api.addr_canonicalize(market_contract)?;
+    config.aterra_contract = deps.api.addr_canonicalize(aterra_contract)?;
+    config.cterra_contract = deps.api.addr_canonicalize(cterra_contract)?;
+    config.capacorp_contract = deps.api.addr_canonicalize(capacorp_contract)?;
+    config.capa_contract = deps.api.addr_canonicalize(capa_contract)?;
+    config.insurance_contract = deps.api.addr_canonicalize(insurance_contract)?;
 
     store_config(deps.storage, &config)?;
 
@@ -171,12 +172,12 @@ pub fn update_config(
     let mut config: Config = read_config(deps.storage)?;
 
     // permission check
-    if info.sender != config.owner_addr {
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
         return Err(StdError::generic_err("Unauthorized"));
     }
 
     if let Some(owner_addr) = owner_addr {
-        config.owner_addr = owner_addr.into();
+        config.owner_addr = deps.api.addr_canonicalize(owner_addr.as_str())?;
     }
 
     store_config(deps.storage, &config)?;
@@ -214,13 +215,19 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config: Config = read_config(deps.storage)?;
     Ok(ConfigResponse {
-        owner_addr: config.owner_addr,
-        market_contract: config.market_contract,
-        aterra_contract: config.aterra_contract,
-        cterra_contract: config.cterra_contract,
-        capacorp_contract: config.capacorp_contract,
-        capa_contract: config.capa_contract,
-        insurance_contract: config.insurance_contract,
+        owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
+        market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
+        aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
+        cterra_contract: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
+        capacorp_contract: deps
+            .api
+            .addr_humanize(&config.capacorp_contract)?
+            .to_string(),
+        capa_contract: deps.api.addr_humanize(&config.capa_contract)?.to_string(),
+        insurance_contract: deps
+            .api
+            .addr_humanize(&config.insurance_contract)?
+            .to_string(),
         stable_denom: config.stable_denom,
     })
 }
@@ -235,10 +242,13 @@ fn transfer_capacorp(
     let mut logs: Vec<Attribute> = vec![attr("action", "distribute")];
 
     messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-        contract_addr: config.aterra_contract.clone(),
+        contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
         funds: vec![],
         msg: to_binary(&Cw20ExecuteMsg::Transfer {
-            recipient: config.insurance_contract,
+            recipient: deps
+                .api
+                .addr_humanize(&config.insurance_contract)?
+                .to_string(),
             amount: insurance_amount.into(),
         })?,
     }));
@@ -251,15 +261,15 @@ fn transfer_capacorp(
     for stake_holder in stake_holders {
         let percent = query_token_balance(
             deps.as_ref(),
-            &deps.api.addr_validate(&config.capacorp_contract)?,
+            &deps.api.addr_humanize(&config.capacorp_contract)?,
             &deps.api.addr_validate(&stake_holder)?,
         )?;
         let share = profit_amount * percent * Decimal256::from_ratio(1, 100000);
         messages.push(CosmosMsg::Wasm(WasmMsg::Execute {
-            contract_addr: config.aterra_contract.clone(),
+            contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
             funds: vec![],
             msg: to_binary(&Cw20ExecuteMsg::Transfer {
-                recipient: stake_holder.clone().into(),
+                recipient: stake_holder.clone(),
                 amount: share.into(),
             })?,
         }));
@@ -277,19 +287,19 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
     let config: Config = read_config(deps.storage)?;
 
     // permission check
-    if info.sender != config.owner_addr {
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
         return Err(StdError::generic_err("Unauthorized"));
     }
 
     let cust_total_supply = query_token_supply(
         deps.as_ref(),
-        deps.api.addr_validate(&config.cterra_contract)?,
+        deps.api.addr_humanize(&config.cterra_contract)?,
     )?;
 
     let mut profit = calculate_aterra_profit(
         deps.as_ref(),
         &env.contract.address,
-        &deps.api.addr_validate(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.aterra_contract)?,
         cust_total_supply,
     )?;
     /*  let tax_amount = compute_tax(deps, &Coin {

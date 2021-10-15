@@ -7,9 +7,24 @@ use cosmwasm_std::testing::{
     mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, Coin, Deps, DepsMut, MemoryStorage, StdError, StdResult,
-    Uint128,
+    attr, from_binary, to_binary, Api, Coin, Deps, DepsMut, MemoryStorage, OwnedDeps, StdError,
+    StdResult, Uint128,
 };
+
+fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Config {
+    Config {
+        contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
+        owner_addr: deps.api.addr_canonicalize("owner").unwrap(),
+        aterra_contract: deps.api.addr_canonicalize("AT-uusd").unwrap(),
+        market_contract: deps.api.addr_canonicalize("market").unwrap(),
+        cterra_contract: deps.api.addr_canonicalize("cterra_contract").unwrap(),
+        capacorp_contract: deps.api.addr_canonicalize("capacorp_contract").unwrap(),
+        capa_contract: deps.api.addr_canonicalize("capa_contract").unwrap(),
+        insurance_contract: deps.api.addr_canonicalize("insurance_contract").unwrap(),
+        stable_denom: "uusd".to_string(),
+    }
+}
+
 #[test]
 fn proper_calculate_fees() {}
 
@@ -27,17 +42,7 @@ fn not_authorized_distribute() {
     }]);
     let info = mock_info("addr0000", &[]);
     //setting up the required infoironment for the function call (inputs)
-    let mock_config = Config {
-        contract_addr: String::from(MOCK_CONTRACT_ADDR),
-        owner_addr: String::from("owner"),
-        aterra_contract: String::from("AT-uusd"),
-        market_contract: String::from("market"),
-        cterra_contract: String::from("cterra_contract"),
-        capacorp_contract: String::from("capacorp_contract"),
-        capa_contract: String::from("capa_contract"),
-        insurance_contract: String::from("insurance_contract"),
-        stable_denom: "uusd".to_string(),
-    };
+    let mock_config = get_mock_config(&deps);
 
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),

@@ -5,7 +5,9 @@ use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg}
 use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
 use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse};
 
-use cosmwasm_std::{to_binary, Addr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery};
+use cosmwasm_std::{
+    to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
+};
 
 use terra_cosmwasm::TerraQuerier;
 
@@ -13,7 +15,7 @@ pub fn query_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
     let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract,
+            contract_addr: deps.api.addr_humanize(&config.market_contract)?.to_string(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -25,7 +27,7 @@ pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
     let config: Config = read_config(deps.storage)?;
     let market_state: StdResult<MarketStateResponse> =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract,
+            contract_addr: deps.api.addr_humanize(&config.market_contract)?.to_string(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
@@ -65,18 +67,18 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
     let config: Config = read_config(deps.storage)?;
 
     let cust_total_supply =
-    query_token_supply(deps, deps.api.addr_validate(&config.cterra_contract)?)?;
+        query_token_supply(deps, deps.api.addr_humanize(&config.cterra_contract)?)?;
 
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.cterra_contract.clone(),
+            contract_addr: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
     let current_profit = calculate_profit(
         deps,
-        &deps.api.addr_validate(&config.contract_addr)?,
-        &deps.api.addr_validate(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.contract_addr)?,
+        &deps.api.addr_humanize(&config.aterra_contract)?,
         cust_total_supply,
     )?;
 
@@ -84,13 +86,13 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
 
     let mut total_value_locked: Uint256 = query_token_balance(
         deps,
-        &deps.api.addr_validate(&config.aterra_contract)?,
-        &deps.api.addr_validate(&config.contract_addr)?,
+        &deps.api.addr_humanize(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.contract_addr)?,
     )?;
 
     let market_state: MarketStateResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.market_contract,
+            contract_addr: deps.api.addr_humanize(&config.market_contract)?.to_string(),
             msg: to_binary(&QueryStateMsg::State {})?,
         }))?;
 
@@ -118,7 +120,10 @@ pub fn query_capacorp_all_accounts(deps: Deps) -> StdResult<Vec<String>> {
     let config: Config = read_config(deps.storage)?;
     let all_accounts: AllAccountsResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: config.capacorp_contract,
+            contract_addr: deps
+                .api
+                .addr_humanize(&config.capacorp_contract)?
+                .to_string(),
             msg: to_binary(&Account::AllAccounts {})?,
         }))?;
 
@@ -175,11 +180,12 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
 
     let cust_balance = query_token_balance(
         deps,
-        &deps.api.addr_validate(&config.cterra_contract)?,
+        &deps.api.addr_humanize(&config.cterra_contract)?,
         &deps.api.addr_validate(&account_addr)?,
     )?;
-    let total_deposit = read_total_deposit(deps.storage, &account_addr);
-    let current_claim = read_total_claim(deps.storage, &account_addr);
+    let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
+    let total_deposit = read_total_deposit(deps.storage, &account_addr_canon);
+    let current_claim = read_total_claim(deps.storage, &account_addr_canon);
 
     let current_ust = cust_balance * capa_exchange_rate;
     let sum_deposit_claim = total_deposit + current_claim;
@@ -192,7 +198,8 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
 }
 
 pub fn query_harvested_sum(deps: Deps, account_addr: String) -> StdResult<Uint256> {
-    Ok(read_total_claim(deps.storage, &account_addr))
+    let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
+    Ok(read_total_claim(deps.storage, &account_addr_canon))
 }
 
 pub fn compute_tax(deps: Deps, coin: &Coin) -> StdResult<Uint256> {

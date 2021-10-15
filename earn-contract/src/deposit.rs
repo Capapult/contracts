@@ -7,8 +7,8 @@ use crate::state::{
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, to_binary, Addr, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response, StdError,
-    StdResult, Uint128, WasmMsg,
+    attr, to_binary, Addr, BankMsg, CanonicalAddr, Coin, CosmosMsg, DepsMut, Env, MessageInfo,
+    Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::Cw20ExecuteMsg;
 
@@ -45,19 +45,19 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps.as_ref())?;
     let mint_amount = deposit_amount / capa_exchange_rate;
 
-    let sender = info.sender.into_string();
-    let mut current_deposit = read_total_deposit(deps.storage, sender.as_str());
+    let sender: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let mut current_deposit = read_total_deposit(deps.storage, &sender);
     if current_deposit == Uint256::from(0u128) {
-        store_total_claim(deps.storage, sender.as_str(), &Uint256::from(0u128))?;
+        store_total_claim(deps.storage, &sender, &Uint256::from(0u128))?;
     }
 
     current_deposit += deposit_amount;
-    store_total_deposit(deps.storage, sender.as_str(), &current_deposit)?;
+    store_total_deposit(deps.storage, &sender, &current_deposit)?;
 
     Ok(Response::new()
         .add_messages(vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.market_contract,
+                contract_addr: deps.api.addr_humanize(&config.market_contract)?.to_string(),
                 msg: to_binary(&DepositStableHandleMsg::DepositStable {})?,
                 funds: vec![Coin {
                     denom: config.stable_denom.clone(),
@@ -65,17 +65,17 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
                 }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.cterra_contract,
+                contract_addr: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Mint {
-                    recipient: sender.clone(),
+                    recipient: info.sender.to_string(),
                     amount: mint_amount.into(),
                 })?,
             }),
         ])
         .add_attributes(vec![
             attr("action", "deposit_stable"),
-            attr("depositor", sender),
+            attr("depositor", info.sender),
             attr("mint_amount", mint_amount),
             attr("deposit_amount", deposit_amount),
         ]))
@@ -122,7 +122,7 @@ pub fn redeem_stable(
 
     let current_balance = query_token_balance(
         deps.as_ref(),
-        &deps.as_ref().api.addr_validate(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.aterra_contract)?,
         &env.contract.address,
     )?;
 
@@ -131,11 +131,12 @@ pub fn redeem_stable(
 
     let cust_balance = query_token_balance(
         deps.as_ref(),
-        &deps.as_ref().api.addr_validate(&config.cterra_contract)?,
+        &deps.api.addr_humanize(&config.cterra_contract)?,
         &sender,
     )?;
 
-    let mut current_deposit = read_total_deposit(deps.storage, sender.as_str());
+    let sender_canon: CanonicalAddr = deps.api.addr_canonicalize(sender.as_str())?;
+    let mut current_deposit = read_total_deposit(deps.storage, &sender_canon);
     let user_claim: Uint256;
 
     if cust_balance * capa_exchange_rate > current_deposit {
@@ -144,23 +145,23 @@ pub fn redeem_stable(
         user_claim = Uint256::from(0u128);
     }
 
-    store_total_claim(deps.storage, sender.as_str(), &user_claim)?;
+    store_total_claim(deps.storage, &sender_canon, &user_claim)?;
 
-    let amount = Uint256::from(withdraw_amount);
+    let amount = withdraw_amount;
     if current_deposit > amount {
         current_deposit = current_deposit - amount;
     } else {
         current_deposit = Uint256::from(0u128);
     }
-    store_total_deposit(deps.storage, sender.as_str(), &current_deposit)?;
+    store_total_deposit(deps.storage, &sender_canon, &current_deposit)?;
 
     Ok(Response::new()
         .add_messages(vec![
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.aterra_contract,
+                contract_addr: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Send {
-                    contract: config.market_contract,
+                    contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
                     amount: aust_burn_amount.into(),
                     msg: to_binary(&RedeemStableHookMsg::RedeemStable {})?,
                 })?,
@@ -173,7 +174,7 @@ pub fn redeem_stable(
                 }],
             }),
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: config.cterra_contract,
+                contract_addr: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
                 funds: vec![],
                 msg: to_binary(&Cw20ExecuteMsg::Burn {
                     amount: burn_amount,
