@@ -162,7 +162,8 @@ pub fn calculate_aterra_profit(
     let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
-
+    println!("total_aterra_amount={}", total_aterra_amount);
+    println!("total_c_ust_supply={}", total_c_ust_supply);
     let res1 = total_aterra_amount * exchange_rate;
     let res2 = total_c_ust_supply * capa_exchange_rate;
     if res1 <= res2 {

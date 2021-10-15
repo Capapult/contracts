@@ -11,6 +11,17 @@ use cosmwasm_std::{
     StdResult, Uint128,
 };
 
+fn get_register_contracts() -> ExecuteMsg {    
+    ExecuteMsg::RegisterContracts {
+        market_contract: String::from("market_contract"),
+        aterra_contract: String::from("aterra_contract"),
+        cterra_contract: String::from("cterra_contract"),
+        capacorp_contract: String::from("capacorp_contract"),
+        capa_contract: String::from("capa_contract"),
+        insurance_contract: String::from("insurance_contract"),
+    }
+}
+
 fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> Config {
     Config {
         contract_addr: deps.api.addr_canonicalize(MOCK_CONTRACT_ADDR).unwrap(),
@@ -65,14 +76,7 @@ fn not_authorized_distribute() {
     // we can just call .unwrap() to assert this was a success
     let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = ExecuteMsg::RegisterContracts {
-        market_contract: String::from("market_contract"),
-        aterra_contract: String::from("aterra_contract"),
-        cterra_contract: String::from("cterra_contract"),
-        capacorp_contract: String::from("capacorp_contract"),
-        capa_contract: String::from("capa_contract"),
-        insurance_contract: String::from("insurance_contract"),
-    };
+    let msg = get_register_contracts();
 
     let info = mock_info("owner", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
@@ -130,26 +134,18 @@ fn not_authorized_distribute() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 }
-/*
+
 #[test]
-fn proper_distribute() {
+fn too_little_profit_distribute() {
+
     let mut deps = mock_dependencies(&[Coin {
         denom: "uusd".to_string(),
         amount: Uint128::from(2000000u128),
     }]);
     let info = mock_info("addr0000", &[]);
     //setting up the required infoironment for the function call (inputs)
-    let mock_config = Config {
-        contract_addr: String::from(MOCK_CONTRACT_ADDR),
-        owner_addr: String::from("owner"),
-        aterra_contract: String::from("AT-uusd"),
-        market_contract: String::from("market"),
-        cterra_contract: String::from("cterra_contract"),
-        capacorp_contract: String::from("capacorp_contract"),
-        capa_contract: String::from("capa_contract"),
-        insurance_contract: String::from("insurance_contract"),
-        stable_denom: "uusd".to_string(),
-    };
+    
+    let mock_config = get_mock_config(&deps);
 
     deps.querier.with_token_balances(&[(
         &"AT-uusd".to_string(),
@@ -172,14 +168,7 @@ fn proper_distribute() {
     // we can just call .unwrap() to assert this was a success
     let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-    let msg = ExecuteMsg::RegisterContracts {
-        market_contract: String::from("market_contract"),
-        aterra_contract: String::from("aterra_contract"),
-        cterra_contract: String::from("cterra_contract"),
-        capacorp_contract: String::from("capacorp_contract"),
-        capa_contract: String::from("capa_contract"),
-        insurance_contract: String::from("insurance_contract"),
-    };
+    let msg = get_register_contracts();
 
     let info = mock_info("owner", &[]);
     let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
@@ -232,6 +221,82 @@ fn proper_distribute() {
     let msg = ExecuteMsg::Distribute {};
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
     match res {
+        Ok(msg) => panic!("Should be an error here"),        
+        Err(StdError::GenericErr  { msg, .. }) => {
+            assert_eq!(msg, "Too little profit to distribute: 0")
+        },
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+}
+#[test]
+fn proper_distribute() {
+    let mut deps = mock_dependencies(&[Coin {
+        denom: "uusd".to_string(),
+        amount: Uint128::from(2000000u128),
+    }]);
+    let info = mock_info("addr0000", &[]);
+    //setting up the required infoironment for the function call (inputs)
+    
+    let mock_config = get_mock_config(&deps);
+
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(&MOCK_CONTRACT_ADDR.to_string(), &Uint128::from(1000000u128))],
+    )]);
+
+    let msg = InstantiateMsg {
+        owner_addr: String::from("owner"),
+        stable_denom: "uusd".to_string(),
+    };
+
+    let info = mock_info(
+        "addr0000",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        }],
+    );
+
+    // we can just call .unwrap() to assert this was a success
+    let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+    let msg = get_register_contracts();
+
+    let info = mock_info("owner", &[]);
+    let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
+    match res {
+        Ok(msg) => {
+            assert_eq!(msg.attributes.len(), 0)
+        }
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+
+    let info = mock_info(
+        "owner",
+        &[Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(55_555_555_000_000u128),
+        }],
+    );
+
+    deps.querier.with_token_balances(&[(
+        &"AT-uusd".to_string(),
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::from(INITIAL_DEPOSIT_AMOUNT),
+        )],
+    )]);
+    deps.querier.update_balance(
+        MOCK_CONTRACT_ADDR,
+        vec![Coin {
+            denom: "uusd".to_string(),
+            amount: Uint128::from(INITIAL_DEPOSIT_AMOUNT + 55_555_555_000_000u128),
+        }],
+    );
+    
+    let msg = ExecuteMsg::Deposit {};
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
+    match res {
         Ok(msg) => {
             assert_eq!(
                 msg.attributes,
@@ -243,10 +308,42 @@ fn proper_distribute() {
                 ]
             );
         }
+        Err(msg) => panic!("DO NOT ENTER HERE"),
+        _ => panic!("DO NOT ENTER HERE"),
+    }
+    
+    deps.querier.with_token_balances(&[(
+        &"aterra_contract".to_string(),
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::from(100_555_555_000_000u128),
+        )],
+    ), (
+        &"cterra_contract".to_string(),
+        &[(
+            &MOCK_CONTRACT_ADDR.to_string(),
+            &Uint128::from(10_555_555_000_000u128),
+        )],
+    )    
+    ]);
+    let msg = ExecuteMsg::Distribute {};
+    let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
+    match res {
+        Ok(msg) => {
+            assert_eq!(
+                msg.attributes,
+                vec![
+                    attr("action", "distribute"),
+                    attr("insurance", "2700000000000"),
+                    attr("daniel", "0"),
+                    attr("bruno", "0"),
+                ]
+            );
+        }
         Err(msg) => panic!("{}", msg.to_string()),
         _ => panic!("DO NOT ENTER HERE"),
     }
-}*/
+}
 
 /*
 #[test]
@@ -291,14 +388,7 @@ fn test_query_dashboard() {
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
-        let msg = ExecuteMsg::RegisterContracts {
-            market_contract: String::from("market_contract"),
-            aterra_contract: String::from("aterra_contract"),
-            cterra_contract: String::from("cterra_contract"),
-            capacorp_contract: String::from("capacorp_contract"),
-            capa_contract: String::from("capa_contract"),
-            insurance_contract: String::from("insurance_contract"),
-        };
+        let msg = get_register_contracts();
 
         let info = mock_info("owner", &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg.clone());
