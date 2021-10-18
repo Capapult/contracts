@@ -6,11 +6,11 @@ use crate::msg::{ConfigResponse, MarketStateResponse};
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::testing::{MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR};
 use cosmwasm_std::{
-    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal,
-    OwnedDeps, Querier, QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
+    from_binary, from_slice, to_binary, Coin, ContractResult, Decimal, OwnedDeps, Querier,
+    QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cw20::{TokenInfoResponse, AllAccountsResponse};
+use cw20::{AllAccountsResponse, TokenInfoResponse};
 use std::collections::HashMap;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -24,7 +24,9 @@ pub enum QueryMsg {
     State {},
     /// Query cw20 Token Info
     TokenInfo {},
-    Balance {address: String},
+    Balance {
+        address: String,
+    },
     AllAccounts {},
 }
 /// mock_dependencies is a drop-in replacement for cosmwasm_std::testing::mock_dependencies
@@ -73,7 +75,10 @@ pub(crate) fn balances_to_map(
         }
 
         balances_map.insert(String::from(*contract_addr), contract_balances_map);
-        println!("balances_map.insert contract_addr {}", String::from(*contract_addr));
+        println!(
+            "balances_map.insert contract_addr {}",
+            String::from(*contract_addr)
+        );
     }
     balances_map
 }
@@ -181,8 +186,7 @@ impl WasmMockQuerier {
                             prev_exchange_rate: Decimal256::one(),
                         })))
                     }
-                    QueryMsg::Balance {address} => {
-
+                    QueryMsg::Balance { address } => {
                         let balances: HashMap<String, Uint128> =
                             match self.token_querier.balances.get(contract_addr) {
                                 Some(balances) => balances.clone(),
@@ -190,18 +194,24 @@ impl WasmMockQuerier {
                             };
                         let balance = match balances.get(&address) {
                             Some(v) => {
-                                println!("mock_querier: {} contract_addr: {} address: {}", v, contract_addr , address);
+                                println!(
+                                    "mock_querier: {} contract_addr: {} address: {}",
+                                    v, contract_addr, address
+                                );
                                 v
                             }
                             None => {
-                                println!("mock_querier: err contract_addr: {} address: {}", contract_addr, address);
+                                println!(
+                                    "mock_querier: err contract_addr: {} address: {}",
+                                    contract_addr, address
+                                );
                                 return SystemResult::Err(SystemError::InvalidRequest {
                                     error: "Balance not found".to_string(),
                                     request: to_binary(&address).unwrap(),
                                 });
                             }
                         };
-    
+
                         SystemResult::Ok(ContractResult::from(to_binary(&balance)))
                     }
                     QueryMsg::TokenInfo {} => {
@@ -291,7 +301,6 @@ impl WasmMockQuerier {
         addr: U,
         balance: Vec<Coin>,
     ) -> Option<Vec<Coin>> {
-
         println!("update_balance");
         self.base.update_balance(addr, balance)
     }

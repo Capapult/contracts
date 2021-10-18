@@ -119,7 +119,7 @@ pub struct DashboardResponse {
     pub total_value_locked: Uint256,
     pub cust_total_supply: Uint256,
     pub cust_nb_accounts: Uint256,
-    pub cust_avg_balance: Decimal256,
+    pub cust_avg_balance: Uint256,
     pub current_profit: Uint256,
     pub total_profit: Uint256,
 }

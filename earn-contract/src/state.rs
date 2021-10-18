@@ -4,11 +4,10 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{CanonicalAddr, StdResult, Storage};
 use cosmwasm_storage::{
-    bucket, bucket_read, ReadonlyPrefixedStorage, ReadonlySingleton, Singleton,
+    bucket, bucket_read,  ReadonlySingleton, Singleton,
 };
 
 pub static KEY_CONFIG: &[u8] = b"config";
-pub const KEY_STATE: &[u8] = b"state";
 pub const KEY_BALANCE: &[u8] = b"balance";
 const PREFIX_PROFIT: &[u8] = b"profit";
 const PREFIX_TOTAL_DEPOSIT: &[u8] = b"td_";
@@ -27,9 +26,6 @@ pub struct Config {
     pub stable_denom: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-pub struct State {}
-
 pub fn store_config(storage: &mut dyn Storage, data: &Config) -> StdResult<()> {
     Singleton::new(storage, KEY_CONFIG).save(data)
 }
@@ -38,17 +34,6 @@ pub fn read_config(storage: &dyn Storage) -> StdResult<Config> {
     ReadonlySingleton::new(storage, KEY_CONFIG).load()
 }
 
-pub fn store_state(storage: &mut dyn Storage, data: &State) -> StdResult<()> {
-    Singleton::new(storage, KEY_STATE).save(data)
-}
-
-pub fn read_state(storage: &dyn Storage) -> StdResult<State> {
-    ReadonlySingleton::new(storage, KEY_STATE).load()
-}
-
-pub fn balances_prefix_read(storage: &dyn Storage) -> ReadonlyPrefixedStorage {
-    ReadonlyPrefixedStorage::new(storage, KEY_BALANCE)
-}
 pub fn store_profit(storage: &mut dyn Storage, profit: &Uint256) -> StdResult<()> {
     Singleton::new(storage, PREFIX_PROFIT).save(profit)
 }

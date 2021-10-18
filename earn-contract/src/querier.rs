@@ -1,7 +1,7 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
-use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg};
+use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg, ConfigResponse};
 use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
 use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse};
 
@@ -53,6 +53,26 @@ pub fn query_token_balance(
     Ok(balance.into())
 }
 
+pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config: Config = read_config(deps.storage)?;
+    Ok(ConfigResponse {
+        owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
+        market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
+        aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
+        cterra_contract: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
+        capacorp_contract: deps
+            .api
+            .addr_humanize(&config.capacorp_contract)?
+            .to_string(),
+        capa_contract: deps.api.addr_humanize(&config.capa_contract)?.to_string(),
+        insurance_contract: deps
+            .api
+            .addr_humanize(&config.insurance_contract)?
+            .to_string(),
+        stable_denom: config.stable_denom,
+    })
+}
+
 pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256> {
     let token_info: TokenInfoResponse =
         deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
@@ -100,10 +120,9 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
 
     let cust_nb_accounts = Uint256::from(all_accounts.accounts.len() as u128);
 
-    let mut cust_avg_balance = Decimal256::zero();
+    let mut cust_avg_balance = Uint256::zero();
     if cust_nb_accounts > Uint256::zero() {
-        cust_avg_balance = Decimal256::from_uint256(cust_total_supply)
-            / Decimal256::from_uint256(cust_nb_accounts);
+        cust_avg_balance = cust_total_supply / Decimal256::from_uint256(cust_nb_accounts);
     }
 
     Ok(DashboardResponse {
@@ -162,8 +181,6 @@ pub fn calculate_aterra_profit(
     let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
-    println!("total_aterra_amount={}", total_aterra_amount);
-    println!("total_c_ust_supply={}", total_c_ust_supply);
     let res1 = total_aterra_amount * exchange_rate;
     let res2 = total_c_ust_supply * capa_exchange_rate;
     if res1 <= res2 {

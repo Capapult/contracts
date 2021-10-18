@@ -1,13 +1,13 @@
 use crate::deposit::{deposit, redeem_stable};
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
     query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
-    query_token_supply,
+    query_token_supply, query_config
 };
 
 use crate::state::{
-    read_config, read_profit, store_config, store_profit, store_state, Config, State,
+    read_config, read_profit, store_config, store_profit, Config, 
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
@@ -17,7 +17,7 @@ use cosmwasm_std::{
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 pub const _1M_: u128 = 1000000;
-pub const INITIAL_DEPOSIT_AMOUNT: u128 = 100000000;
+pub const INITIAL_DEPOSIT_AMOUNT: u128 = 100*_1M_;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -65,8 +65,6 @@ pub fn instantiate(
             insurance_contract: CanonicalAddr::from(vec![]),
         },
     )?;
-
-    store_state(deps.storage, &State {})?;
 
     Ok(Response::default())
 }
@@ -212,25 +210,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     }
 }
 
-pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let config: Config = read_config(deps.storage)?;
-    Ok(ConfigResponse {
-        owner_addr: deps.api.addr_humanize(&config.owner_addr)?.to_string(),
-        market_contract: deps.api.addr_humanize(&config.market_contract)?.to_string(),
-        aterra_contract: deps.api.addr_humanize(&config.aterra_contract)?.to_string(),
-        cterra_contract: deps.api.addr_humanize(&config.cterra_contract)?.to_string(),
-        capacorp_contract: deps
-            .api
-            .addr_humanize(&config.capacorp_contract)?
-            .to_string(),
-        capa_contract: deps.api.addr_humanize(&config.capa_contract)?.to_string(),
-        insurance_contract: deps
-            .api
-            .addr_humanize(&config.insurance_contract)?
-            .to_string(),
-        stable_denom: config.stable_denom,
-    })
-}
 
 fn transfer_capacorp(
     deps: DepsMut,
