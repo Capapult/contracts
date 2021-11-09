@@ -4,7 +4,6 @@ use std::fs::create_dir_all;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use earn_contract::msg::{ExecuteMsg, InstantiateMsg};
-use earn_contract::state::State;
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -14,5 +13,4 @@ fn main() {
 
     export_schema(&schema_for!(InstantiateMsg), &out_dir);
     export_schema(&schema_for!(ExecuteMsg), &out_dir);
-    export_schema(&schema_for!(State), &out_dir);
 }

@@ -123,3 +123,6 @@ pub struct DashboardResponse {
     pub current_profit: Uint256,
     pub total_profit: Uint256,
 }
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

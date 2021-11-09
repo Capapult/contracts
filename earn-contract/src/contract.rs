@@ -1,5 +1,5 @@
 use crate::deposit::{deposit, redeem_stable};
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, MigrateMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
     query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
@@ -303,4 +303,9 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
 
     let response = transfer_capacorp(deps, config, insurance_amount, profit)?;
     Ok(response)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
