@@ -1,9 +1,9 @@
-use cosmwasm_std::{StdError, StdResult, Uint128, Addr};
+use cosmwasm_std::{StdError, StdResult, Uint128};
 use cw20::{Cw20Coin, Logo, MinterResponse};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Binary};
+use cosmwasm_std::Binary;
 use cw0::Expiration;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
@@ -131,10 +131,6 @@ pub enum ExecuteMsg {
     },
     /// If set as the "marketing" role on the contract, upload a new URL, SVG, or PNG for the token
     UploadLogo(Logo),
-    /// Only with "mintable" extension.
-    /// Returns who can mint now and the hard cap on maximum tokens after minting.
-    /// Return type: MinterResponse.
-    UpdateMinter { minter:  String},
 }
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -178,5 +174,8 @@ pub enum QueryMsg {
     /// contract.
     /// Return type: DownloadLogoResponse.
     DownloadLogo {},
-    
 }
+
+/// We currently take no arguments for migrations
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct MigrateMsg {}

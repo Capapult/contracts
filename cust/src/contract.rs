@@ -2,7 +2,6 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128,
-    Addr
 };
 
 use cw2::set_contract_version;
@@ -17,7 +16,7 @@ use crate::allowances::{
 };
 use crate::enumerable::{query_all_accounts, query_all_allowances};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, MigrateMsg};
 use crate::state::{MinterData, TokenInfo, BALANCES, LOGO, MARKETING_INFO, TOKEN_INFO};
 
 // version info for migration info
@@ -180,7 +179,6 @@ pub fn execute(
             msg,
         } => execute_send(deps, env, info, contract, amount, msg),
         ExecuteMsg::Mint { recipient, amount } => execute_mint(deps, env, info, recipient, amount),
-        ExecuteMsg::UpdateMinter { minter } => update_minter(deps, info, minter),
         ExecuteMsg::IncreaseAllowance {
             spender,
             amount,
@@ -447,49 +445,6 @@ pub fn execute_upload_logo(
 
     let res = Response::new().add_attribute("action", "upload_logo");
     Ok(res)
-}
-
-pub fn update_minter(
-    deps: DepsMut,
-    info: MessageInfo,
-    minter_addr: String,
-) -> Result<Response, ContractError> {
-    let meta = TOKEN_INFO.load(deps.storage)?;
-    let minter = match meta.mint {
-
-        Some(m) => {
-            
-        // permission check
-        if info.sender != m.minter {
-            return Err(ContractError::Unauthorized {});
-        }
-            
-    let mint = Some(MinterData {
-            minter: deps.api.addr_validate(&minter_addr)?,
-            cap: m.cap,
-        });
-
-    // store token info
-    let data = TokenInfo {
-        name: meta.name,
-        symbol: meta.symbol,
-        decimals: meta.decimals,
-        total_supply: meta.total_supply,
-        mint,
-    };
-    TOKEN_INFO.save(deps.storage, &data)?;
-
-            Some(MinterResponse {
-            minter: m.minter.into(),
-            cap: m.cap,
-        })
-        },
-        None => None,
-    };
-
-    Ok(Response::new()
-    .add_attribute("action", "update_minter")
-    .add_attribute("minter", "minter_addr"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -1963,4 +1918,9 @@ mod tests {
             );
         }
     }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }

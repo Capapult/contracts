@@ -1,9 +1,9 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use cosmwasm_std::{Addr, Uint128, StdResult, Storage};
-use cw_storage_plus::{Item, Map};
+use cosmwasm_std::{Addr, Uint128};
 use cw20::{AllowanceResponse, Logo, MarketingInfoResponse};
+use cw_storage_plus::{Item, Map};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
 #[serde(rename_all = "snake_case")]
