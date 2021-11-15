@@ -1,6 +1,6 @@
 use crate::msg::{DepositStableHandleMsg, RedeemStableHookMsg};
 use crate::querier::{
-    compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
+    /*compute_tax, deduct_tax, */query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
 };
 use crate::state::{
     read_config, read_total_deposit, store_total_claim, store_total_deposit, Config,
@@ -84,7 +84,7 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
 
 pub fn redeem_stable(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     sender: Addr,
     burn_amount: Uint128,
 ) -> StdResult<Response> {
@@ -189,7 +189,7 @@ pub fn redeem_stable(
             attr("withdraw_amount ust", withdraw_amount),
         ]))
 }
-
+/*
 fn assert_redeem_amount(
     config: &Config,
     current_balance: Uint256,
@@ -206,3 +206,4 @@ fn assert_redeem_amount(
 
     Ok(())
 }
+*/

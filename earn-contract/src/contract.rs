@@ -1,3 +1,6 @@
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::entry_point;
+
 use crate::deposit::{deposit, redeem_stable};
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, MigrateMsg};
 use crate::querier::{
@@ -11,7 +14,7 @@ use crate::state::{
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, entry_point, from_binary, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg,
+    attr, from_binary, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg,
     Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
@@ -68,6 +71,7 @@ pub fn instantiate(
 
     Ok(Response::default())
 }
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
@@ -93,6 +97,39 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::Deposit {} => deposit(deps, info),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
     }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
+        QueryMsg::Dashboard {} => to_binary(&query_dashboard(deps)?),
+        QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)?),
+        QueryMsg::AvailableHarvest { account_addr } => {
+            to_binary(&query_harvest_value(deps, account_addr)?)
+        }
+        QueryMsg::HarvestedSum { account_addr } => {
+            to_binary(&query_harvested_sum(deps, account_addr)?)
+        }
+        QueryMsg::QueryToken {
+            contract_addr,
+            account_addr,
+        } => to_binary(&query_token_balance(
+            deps,
+            &deps.api.addr_validate(contract_addr.as_str())?,
+            &deps.api.addr_validate(account_addr.as_str())?,
+        )?),
+        QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_token_supply(
+            deps,
+            deps.api.addr_validate(contract_addr.as_str())?,
+        )?),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
+    Ok(Response::default())
 }
 
 pub fn receive_cw20(
@@ -182,33 +219,6 @@ pub fn update_config(
     Ok(Response::new().add_attribute("action", "update_config"))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
-    match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::ExchangeRate {} => to_binary(&query_capapult_exchange_rate(deps)?),
-        QueryMsg::Dashboard {} => to_binary(&query_dashboard(deps)?),
-        QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)?),
-        QueryMsg::AvailableHarvest { account_addr } => {
-            to_binary(&query_harvest_value(deps, account_addr)?)
-        }
-        QueryMsg::HarvestedSum { account_addr } => {
-            to_binary(&query_harvested_sum(deps, account_addr)?)
-        }
-        QueryMsg::QueryToken {
-            contract_addr,
-            account_addr,
-        } => to_binary(&query_token_balance(
-            deps,
-            &deps.api.addr_validate(contract_addr.as_str())?,
-            &deps.api.addr_validate(account_addr.as_str())?,
-        )?),
-        QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_token_supply(
-            deps,
-            deps.api.addr_validate(contract_addr.as_str())?,
-        )?),
-    }
-}
 
 
 fn transfer_capacorp(
@@ -303,9 +313,4 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
 
     let response = transfer_capacorp(deps, config, insurance_amount, profit)?;
     Ok(response)
-}
-
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> StdResult<Response> {
-    Ok(Response::default())
 }
