@@ -1,6 +1,6 @@
 use crate::msg::{DepositStableHandleMsg, RedeemStableHookMsg};
 use crate::querier::{
-    /*compute_tax, deduct_tax, */query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
+    compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
 };
 use crate::state::{
     read_config, read_total_deposit, store_total_claim, store_total_deposit, Config,
@@ -18,14 +18,14 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
 
     // Check base denom deposit
-    let deposit_amount: Uint256 = info
+    let mut deposit_amount: Uint256 = info
         .funds
         .iter()
         .find(|c| c.denom == config.stable_denom)
         .map(|c| Uint256::from(c.amount))
         .unwrap_or_else(Uint256::zero);
 
-  /*  let deposit_coin = deduct_tax(
+    let deposit_coin = deduct_tax(
         deps.as_ref(),
         Coin {
             denom: config.stable_denom.clone(),
@@ -33,7 +33,7 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
         },
     )?;
     deposit_amount = Uint256::from(deposit_coin.amount);
-*/
+
 
     // Cannot deposit smallish amount
     if deposit_amount <= Uint256::from(1_000_000u128) {
@@ -93,9 +93,9 @@ pub fn redeem_stable(
     let capa_exchange_rate: Decimal256 = query_capapult_exchange_rate(deps.as_ref())?;
     let exchange_rate: Decimal256 = query_exchange_rate(deps.as_ref())?;
 
-    let withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
+    let mut withdraw_amount = Uint256::from(burn_amount) * capa_exchange_rate;
 
- /*   let tax_amount = compute_tax(
+    let tax_amount = compute_tax(
         deps.as_ref(),
         &Coin {
             denom: config.stable_denom.clone(),
@@ -111,7 +111,7 @@ pub fn redeem_stable(
         },
     )?;
     withdraw_amount = withdraw_amount - tax_amount;
-*/
+
     if withdraw_amount <= Uint256::from(1_000_000u128) {
         return Err(StdError::generic_err(format!(
             "Withdrawal amount must be greater than 1 UST {}",
