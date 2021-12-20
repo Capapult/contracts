@@ -84,7 +84,7 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
 
 pub fn redeem_stable(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     sender: Addr,
     burn_amount: Uint128,
 ) -> StdResult<Response> {
@@ -121,7 +121,7 @@ pub fn redeem_stable(
 
     let aust_burn_amount = withdraw_amount / exchange_rate;
 
-  /*  let current_balance = query_token_balance(
+   let current_balance = query_token_balance(
         deps.as_ref(),
         &deps.api.addr_humanize(&config.aterra_contract)?,
         &env.contract.address,
@@ -129,7 +129,7 @@ pub fn redeem_stable(
 
     // Assert redeem amount
     assert_redeem_amount(&config, current_balance, aust_burn_amount)?;
-*/
+
     let cust_balance = query_token_balance(
         deps.as_ref(),
         &deps.api.addr_humanize(&config.cterra_contract)?,
@@ -189,7 +189,7 @@ pub fn redeem_stable(
             attr("withdraw_amount ust", withdraw_amount),
         ]))
 }
-/*
+
 fn assert_redeem_amount(
     config: &Config,
     current_balance: Uint256,
@@ -206,4 +206,3 @@ fn assert_redeem_amount(
 
     Ok(())
 }
-*/

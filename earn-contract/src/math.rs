@@ -185,7 +185,7 @@ pub trait Calculate {
 
 impl Calculate for ExchangeRate {
     const A: Decimal256 = Decimal256(U256([1_000_499_635_890_955_755u64, 0, 0, 0]));
-    const B: Decimal256 = Decimal256(U256([1_000_261_157_876_067_855u64, 0, 0, 0]));
+    const B: Decimal256 = Decimal256(U256([1_000_285_958_728_607_700u64, 0, 0, 0]));
     const LN_A: Decimal256 = Decimal256(U256([499_511_114_504_063u64, 0, 0, 0]));
 
     fn a_terra_exchange_rate(day: Decimal256) -> StdResult<Decimal256> {

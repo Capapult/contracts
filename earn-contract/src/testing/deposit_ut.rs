@@ -173,7 +173,7 @@ fn too_small_deposit() {
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
     match res {
         Err(StdError::GenericErr { msg, .. }) => {
-            assert_eq!(msg, "Deposit amount must be greater than 0 after tax uusd")
+            assert_eq!(msg, "Deposit amount must be greater than 1 UST uusd")
         }
         _ => panic!("DO NOT ENTER HERE"),
     }
@@ -499,7 +499,7 @@ fn withdraw_too_little() {
     match res {
         Ok(msg) => panic!("DO NOT ENTER HERE"),
         Err(msg) => assert_eq!(
-            "Generic error: Withdrawal amount must be greater than 0 after tax uusd",
+            "Generic error: Withdrawal amount must be greater than 1 UST uusd",
             msg.to_string()
         ),
         _ => panic!("DO NOT ENTER HERE"),

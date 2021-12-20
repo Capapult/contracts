@@ -93,7 +93,7 @@ mod tests {
             .to_string()
         );
         assert_eq!(
-            "1.00026115787606",
+            "1.00028595872860",
             ExchangeRate::capapult_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::one()).unwrap()
             )
@@ -103,7 +103,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
-            "1.100000000000",
+            "1.109999999999",
             ExchangeRate::capapult_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(365, 1)).unwrap()
             )
@@ -113,7 +113,7 @@ mod tests {
             .unwrap()
         );
         assert_eq!(
-            "1.21000000000",
+            "1.23209999999",
             ExchangeRate::capapult_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(2 * 365, 1)).unwrap()
             )
