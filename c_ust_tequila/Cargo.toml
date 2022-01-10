@@ -1,0 +1,51 @@
+[package]
+name = "c-ust"
+version = "0.2.1"
+authors = ["Bruno Janvier <bruno@capapult.finance>"]
+edition = "2018"
+description = "c-ust is a cw-20 base token with an owner that can update the minter"
+license = "Apache-2.0"
+repository = "https://github.com/capapult/contracts"
+homepage = "https://capapult.finance"
+documentation = "https://capapult.finance"
+
+exclude = [
+  # Those files are rust-optimizer artifacts. You might want to commit them for convenience but they should not be part of the source code publication.
+  "contract.wasm",
+  "hash.txt",
+]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
+[features]
+backtraces = ["cosmwasm-std/backtraces"]
+# use library feature to disable all init/handle/query exports
+library = []
+
+[dependencies]
+cw2 = "0.2.1"
+cw20 = "0.2.1"
+cosmwasm-std = { version = "0.10.1", features = ["iterator"] }
+cosmwasm-storage = { version = "0.10.1", features = ["iterator"] }
+schemars = "0.7"
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+snafu = { version = "0.6.3" }
+
+[dev-dependencies]
+# we only need to enable this if we use integration tests
+#cosmwasm-vm = { version = "0.10.1", default-features = false }
+cosmwasm-schema = { version = "0.10.1" }
+
+[profile.dev]
+overflow-checks = true

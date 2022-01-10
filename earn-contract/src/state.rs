@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use cosmwasm_bignumber::Uint256;
 use cosmwasm_std::{CanonicalAddr, StdResult, Storage};
 use cosmwasm_storage::{
-    bucket, bucket_read,  ReadonlySingleton, Singleton,
+    Bucket, ReadonlyBucket,  ReadonlySingleton, Singleton,
 };
 
 pub static KEY_CONFIG: &[u8] = b"config";
@@ -47,12 +47,12 @@ pub fn store_total_deposit(
     account_addr: &CanonicalAddr,
     deposit: &Uint256,
 ) -> StdResult<()> {
-    bucket(storage, PREFIX_TOTAL_DEPOSIT).save(account_addr.as_slice(), deposit)
+    Bucket::new(storage, PREFIX_TOTAL_DEPOSIT).save(account_addr.as_slice(), deposit)
 }
 
 pub fn read_total_deposit(storage: &dyn Storage, account_addr: &CanonicalAddr) -> Uint256 {
     let mut current_deposit = Uint256::from(0u128);
-    if let Ok(x) = bucket_read(storage, PREFIX_TOTAL_DEPOSIT).load(account_addr.as_slice()) {
+    if let Ok(x) = ReadonlyBucket::new(storage, PREFIX_TOTAL_DEPOSIT).load(account_addr.as_slice()) {
         current_deposit = x
     }
     current_deposit
@@ -63,13 +63,17 @@ pub fn store_total_claim(
     account_addr: &CanonicalAddr,
     deposit: &Uint256,
 ) -> StdResult<()> {
-    bucket(storage, PREFIX_TOTAL_CLAIM).save(account_addr.as_slice(), deposit)
+    Bucket::new(storage, PREFIX_TOTAL_CLAIM).save(account_addr.as_slice(), deposit)
 }
 
 pub fn read_total_claim(storage: &dyn Storage, account_addr: &CanonicalAddr) -> Uint256 {
     let mut current_claim = Uint256::from(0u128);
-    if let Ok(x) = bucket_read(storage, PREFIX_TOTAL_CLAIM).load(account_addr.as_slice()) {
+    if let Ok(x) = ReadonlyBucket::new(storage, PREFIX_TOTAL_CLAIM).load(account_addr.as_slice()) {
         current_claim = x
     }
     current_claim
+}
+pub fn remove_account(storage: &mut dyn Storage, account_addr: &CanonicalAddr) {    
+    Bucket::<Uint256>::new(storage, PREFIX_TOTAL_DEPOSIT).remove(account_addr.as_slice());
+    Bucket::<Uint256>::new(storage, PREFIX_TOTAL_CLAIM).remove(account_addr.as_slice());
 }
