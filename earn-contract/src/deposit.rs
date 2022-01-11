@@ -120,15 +120,20 @@ pub fn redeem_stable(
     }
 
     let aust_burn_amount = withdraw_amount / exchange_rate;
+    let aust_contract_address = deps.api.addr_humanize(&config.aterra_contract)?;
 
    let current_balance = query_token_balance(
         deps.as_ref(),
-        &deps.api.addr_humanize(&config.aterra_contract)?,
+        &aust_contract_address,
         &env.contract.address,
     )?;
 
-    // Assert redeem amount
-    assert_redeem_amount(&config, current_balance, aust_burn_amount)?;
+     if aust_burn_amount > current_balance {
+         return Err(StdError::generic_err(format!(
+             "Not enough aust available; redeem amount {} larger than current balance {} for contract {} with aust contract {}",
+             aust_burn_amount, current_balance, env.contract.address , aust_contract_address
+         )));
+     }
 
     let cust_balance = query_token_balance(
         deps.as_ref(),
@@ -188,21 +193,4 @@ pub fn redeem_stable(
             attr("aust_burn_amount aust", aust_burn_amount),
             attr("withdraw_amount ust", withdraw_amount),
         ]))
-}
-
-fn assert_redeem_amount(
-    config: &Config,
-    current_balance: Uint256,
-    redeem_amount: Uint256,
-) -> StdResult<()> {
-    let current_balance = Decimal256::from_uint256(current_balance);
-    let redeem_amount = Decimal256::from_uint256(redeem_amount);
-    if redeem_amount > current_balance {
-        return Err(StdError::generic_err(format!(
-            "Not enough {} available; redeem amount {} larger than current balance {}",
-            config.stable_denom, redeem_amount, current_balance
-        )));
-    }
-
-    Ok(())
 }

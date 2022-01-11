@@ -3,7 +3,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 use crate::math::*;
 use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg, ConfigResponse};
 use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
-use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse};
+use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse, BalanceResponse as Cw20BalanceResponse };
 
 use cosmwasm_std::{
     to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
@@ -41,16 +41,15 @@ pub fn query_token_balance(
     account_addr: &Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let balance: Uint128 = deps
+    let res : Cw20BalanceResponse = deps
         .querier
         .query(&QueryRequest::Wasm(WasmQuery::Smart {
             contract_addr: contract_addr.to_string(),
             msg: to_binary(&Cw20QueryMsg::Balance {
                 address: account_addr.to_string(),
             })?,
-        }))
-        .unwrap_or_else(|_| Uint128::zero());
-    Ok(balance.into())
+        }))?;
+    Ok(Uint256::from(res.balance))
 }
 
 pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
