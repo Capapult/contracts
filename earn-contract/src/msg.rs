@@ -38,6 +38,9 @@ pub enum ExecuteMsg {
     ////////////////////
     /// Deposit stable asset to get interest
     Deposit {},
+    RemoveAccount{        
+       addr: Option<Addr>,
+    },
     Receive(Cw20ReceiveMsg),
 }
 

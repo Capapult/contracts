@@ -1,1 +1,1 @@
-3cd165a7fa26d2ae0e668ef5327bf8c90c342feb1a9da95bdfa6b61d066dcc0a  ./target/wasm32-unknown-unknown/release/earn_contract.wasm
+7f0a0c8431e4d5f6ea694788652253badc262298d5c994c20bf9949f29afa6f7  ./target/wasm32-unknown-unknown/release/earn_contract.wasm

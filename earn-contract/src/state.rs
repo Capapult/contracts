@@ -73,7 +73,7 @@ pub fn read_total_claim(storage: &dyn Storage, account_addr: &CanonicalAddr) -> 
     }
     current_claim
 }
-pub fn remove_account(storage: &mut dyn Storage, account_addr: &CanonicalAddr) {    
+pub fn remove_account(storage: &mut dyn Storage,  account_addr: &CanonicalAddr) {    
     Bucket::<Uint256>::new(storage, PREFIX_TOTAL_DEPOSIT).remove(account_addr.as_slice());
     Bucket::<Uint256>::new(storage, PREFIX_TOTAL_CLAIM).remove(account_addr.as_slice());
 }

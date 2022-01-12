@@ -10,7 +10,7 @@ use crate::querier::{
 };
 
 use crate::state::{
-    read_config, read_profit, store_config, store_profit, Config, 
+    read_config, read_profit, store_config, store_profit, Config, remove_account
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
@@ -95,9 +95,11 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig { owner_addr } => update_config(deps, info, owner_addr),
         ExecuteMsg::Distribute {} => distribute(deps, env, info),
         ExecuteMsg::Deposit {} => deposit(deps, info),
+        ExecuteMsg::RemoveAccount {addr } => remove_info_account(deps, addr ),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
     }
 }
+
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -107,7 +109,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::Dashboard {} => to_binary(&query_dashboard(deps)?),
         QueryMsg::CorpAccounts {} => to_binary(&query_capacorp_all_accounts(deps)?),
         QueryMsg::AvailableHarvest { account_addr } => {
-            to_binary(&query_harvest_value(deps, account_addr)?)
+            let config: Config = read_config(deps.storage)?;
+            let cust_balance = query_token_balance(
+                deps,
+                &deps.api.addr_humanize(&config.cterra_contract)?,
+                &deps.api.addr_validate(account_addr.as_str())?,
+            )?;
+            to_binary(&query_harvest_value(deps, cust_balance, account_addr)?)
         }
         QueryMsg::HarvestedSum { account_addr } => {
             to_binary(&query_harvested_sum(deps, account_addr)?)
@@ -220,6 +228,13 @@ pub fn update_config(
 }
 
 
+pub fn remove_info_account(deps: DepsMut,  account_addr: Option<Addr>) -> StdResult<Response> {    
+    if let Some(account_addr) = account_addr {
+        let canonical_addr = deps.api.addr_canonicalize(account_addr.as_str())?;
+        remove_account(deps.storage, &canonical_addr);
+    }
+    Ok(Response::new())
+}
 
 fn transfer_capacorp(
     deps: DepsMut,

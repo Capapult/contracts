@@ -128,6 +128,13 @@ pub fn redeem_stable(
         &env.contract.address,
     )?;
 
+    let cust_balance = query_token_balance(
+        deps.as_ref(),
+        &deps.api.addr_humanize(&config.cterra_contract)?,
+        &deps.api.addr_validate(sender.as_str())?,
+    )?;
+
+
      if aust_burn_amount > current_balance {
          return Err(StdError::generic_err(format!(
              "Not enough aust available; redeem amount {} larger than current balance {}",
@@ -139,9 +146,9 @@ pub fn redeem_stable(
     let mut current_deposit = read_total_deposit(deps.storage, &sender_canon);
     let user_claim: Uint256;
 
-    let harvest_value = query_harvest_value(deps.as_ref(), sender.to_string())?;
-
+    let harvest_value = query_harvest_value(deps.as_ref(), cust_balance + Uint256::from(burn_amount), sender.to_string())?;
     let burn_amount_ust = Uint256::from(burn_amount) * capa_exchange_rate;
+
     if harvest_value > burn_amount_ust   {
         user_claim = harvest_value - burn_amount_ust;
     } else {

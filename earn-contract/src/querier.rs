@@ -189,17 +189,10 @@ pub fn calculate_aterra_profit(
     Ok((res1 - res2) / exchange_rate)
 }
 
-pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint256> {
-    let config: Config = read_config(deps.storage)?;
-
+pub fn query_harvest_value(deps: Deps, cust_balance : Uint256, account_addr: String) -> StdResult<Uint256> {
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
     let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
 
-    let cust_balance = query_token_balance(
-        deps,
-        &deps.api.addr_humanize(&config.cterra_contract)?,
-        &deps.api.addr_validate(&account_addr)?,
-    )?;
     let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
     let total_deposit = read_total_deposit(deps.storage, &account_addr_canon);
     let current_claim = read_total_claim(deps.storage, &account_addr_canon);
@@ -209,7 +202,7 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
 
     if current_ust > sum_deposit_claim   {
         return Ok(current_ust - sum_deposit_claim  );
-    }
+    } 
 
     Ok(Uint256::from(0u128))
 }
