@@ -1,6 +1,6 @@
 use crate::msg::{DepositStableHandleMsg, RedeemStableHookMsg};
 use crate::querier::{
-    compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
+    query_harvest_value, compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
 };
 use crate::state::{
     read_config, read_total_deposit, store_total_claim, store_total_deposit, Config,
@@ -130,32 +130,28 @@ pub fn redeem_stable(
 
      if aust_burn_amount > current_balance {
          return Err(StdError::generic_err(format!(
-             "Not enough aust available; redeem amount {} larger than current balance {} for contract {} with aust contract {}",
-             aust_burn_amount, current_balance, env.contract.address , aust_contract_address
+             "Not enough aust available; redeem amount {} larger than current balance {}",
+             aust_burn_amount, current_balance
          )));
      }
-
-    let cust_balance = query_token_balance(
-        deps.as_ref(),
-        &deps.api.addr_humanize(&config.cterra_contract)?,
-        &sender,
-    )?;
 
     let sender_canon: CanonicalAddr = deps.api.addr_canonicalize(sender.as_str())?;
     let mut current_deposit = read_total_deposit(deps.storage, &sender_canon);
     let user_claim: Uint256;
 
-    if cust_balance * capa_exchange_rate > current_deposit {
-        user_claim = cust_balance * capa_exchange_rate - current_deposit;
+    let harvest_value = query_harvest_value(deps.as_ref(), sender.to_string())?;
+
+    let burn_amount_ust = Uint256::from(burn_amount) * capa_exchange_rate;
+    if harvest_value > burn_amount_ust   {
+        user_claim = harvest_value - burn_amount_ust;
     } else {
-        user_claim = Uint256::from(0u128);
+        user_claim = harvest_value;
     }
 
     store_total_claim(deps.storage, &sender_canon, &user_claim)?;
 
-    let amount = withdraw_amount;
-    if current_deposit > amount {
-        current_deposit = current_deposit - amount;
+    if current_deposit > burn_amount_ust {
+        current_deposit = current_deposit - burn_amount_ust;
     } else {
         current_deposit = Uint256::from(0u128);
     }

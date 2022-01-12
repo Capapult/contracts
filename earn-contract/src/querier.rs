@@ -6,7 +6,7 @@ use crate::state::{read_config, read_profit, read_total_claim, read_total_deposi
 use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse, BalanceResponse as Cw20BalanceResponse };
 
 use cosmwasm_std::{
-    to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult, Uint128, WasmQuery,
+    to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult,  WasmQuery
 };
 
 use terra_cosmwasm::TerraQuerier;
@@ -207,8 +207,8 @@ pub fn query_harvest_value(deps: Deps, account_addr: String) -> StdResult<Uint25
     let current_ust = cust_balance * capa_exchange_rate;
     let sum_deposit_claim = total_deposit + current_claim;
 
-    if current_ust > sum_deposit_claim {
-        return Ok(current_ust - sum_deposit_claim);
+    if current_ust > sum_deposit_claim   {
+        return Ok(current_ust - sum_deposit_claim  );
     }
 
     Ok(Uint256::from(0u128))

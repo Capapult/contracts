@@ -380,7 +380,7 @@ fn withdraw_too_much() {
     match res {
         Ok(_msg) => panic!("DO NOT ENTER HERE"),
         Err(msg) =>  assert_eq!(
-            "Generic error: Not enough uusd available; redeem amount 55555555000000 larger than current balance 55555554750000", 
+            "Generic error: Not enough aust available; redeem amount 55555555000000 larger than current balance 55555554750000", 
             msg.to_string()),
         _ => panic!("DO NOT ENTER HERE"),
     }

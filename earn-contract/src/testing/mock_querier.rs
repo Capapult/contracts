@@ -10,7 +10,7 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cw20::{AllAccountsResponse, TokenInfoResponse};
+use cw20::{AllAccountsResponse, TokenInfoResponse, BalanceResponse};
 use std::collections::HashMap;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -151,7 +151,9 @@ impl WasmMockQuerier {
                 }
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-                match from_binary(&msg).unwrap() {
+
+                let matcher : QueryMsg = from_binary(&msg).unwrap();
+                match matcher {
                     QueryMsg::AllAccounts {} => {
                         let mut vec = Vec::new();
                         vec.push("daniel".to_string());
@@ -192,27 +194,16 @@ impl WasmMockQuerier {
                                 Some(balances) => balances.clone(),
                                 None => HashMap::new(),
                             };
-                        let balance = match balances.get(&address) {
-                            Some(v) => {
-                                println!(
-                                    "mock_querier: {} contract_addr: {} address: {}",
-                                    v, contract_addr, address
-                                );
-                                v
-                            }
-                            None => {
-                                println!(
-                                    "mock_querier: err contract_addr: {} address: {}",
-                                    contract_addr, address
-                                );
-                                return SystemResult::Err(SystemError::InvalidRequest {
-                                    error: "Balance not found".to_string(),
-                                    request: to_binary(&address).unwrap(),
-                                });
-                            }
-                        };
+                        let option_balance = balances.get(&address);
 
-                        SystemResult::Ok(ContractResult::from(to_binary(&balance)))
+                        let mut balance : &Uint128 = &Uint128::zero();
+                        if option_balance.is_none() == false {
+                            balance = option_balance.unwrap();
+                        }
+
+                        SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse { 
+                            balance: *balance
+                        })))
                     }
                     QueryMsg::TokenInfo {} => {
                         let balances: HashMap<String, Uint128> =
@@ -276,7 +267,9 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(&balance)))
+                    SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse { 
+                        balance: *balance
+                    })))
                 } else {
                     panic!("DO NOT ENTER HERE")
                 }
