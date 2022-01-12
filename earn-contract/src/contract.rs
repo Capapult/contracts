@@ -95,7 +95,7 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig { owner_addr } => update_config(deps, info, owner_addr),
         ExecuteMsg::Distribute {} => distribute(deps, env, info),
         ExecuteMsg::Deposit {} => deposit(deps, info),
-        ExecuteMsg::RemoveAccount {addr } => remove_info_account(deps, addr ),
+        ExecuteMsg::RemoveAccount {addr } => remove_info_account(deps, info, addr ),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
     }
 }
@@ -228,7 +228,13 @@ pub fn update_config(
 }
 
 
-pub fn remove_info_account(deps: DepsMut,  account_addr: Option<Addr>) -> StdResult<Response> {    
+pub fn remove_info_account(deps: DepsMut, info: MessageInfo, account_addr: Option<Addr>) -> StdResult<Response> {    
+    let config: Config = read_config(deps.storage)?;
+    // permission check
+    if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
+        return Err(StdError::generic_err("Unauthorized"));
+    }
+
     if let Some(account_addr) = account_addr {
         let canonical_addr = deps.api.addr_canonicalize(account_addr.as_str())?;
         remove_account(deps.storage, &canonical_addr);
