@@ -2,7 +2,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
 use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg, ConfigResponse};
-use crate::state::{read_config, read_profit, read_total_claim, read_total_deposit, Config};
+use crate::state::{read_config, read_profit, read_total_claim, read_last_ops_ust, Config};
 use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse, BalanceResponse as Cw20BalanceResponse };
 
 use cosmwasm_std::{
@@ -194,14 +194,12 @@ pub fn query_harvest_value(deps: Deps, cust_balance : Uint256, account_addr: Str
     let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
 
     let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
-    let total_deposit = read_total_deposit(deps.storage, &account_addr_canon);
-    let current_claim = read_total_claim(deps.storage, &account_addr_canon);
+    let last_ops_ust = read_last_ops_ust(deps.storage, &account_addr_canon, Uint256::zero());
 
     let current_ust = cust_balance * capa_exchange_rate;
-    let sum_deposit_claim = total_deposit + current_claim;
 
-    if current_ust > sum_deposit_claim   {
-        return Ok(current_ust - sum_deposit_claim  );
+    if current_ust > last_ops_ust   {
+        return Ok(current_ust - last_ops_ust  );
     } 
 
     Ok(Uint256::from(0u128))

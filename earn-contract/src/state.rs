@@ -11,6 +11,7 @@ pub static KEY_CONFIG: &[u8] = b"config";
 pub const KEY_BALANCE: &[u8] = b"balance";
 const PREFIX_PROFIT: &[u8] = b"profit";
 const PREFIX_TOTAL_DEPOSIT: &[u8] = b"td_";
+const PREFIX_LAST_WITHDRAW: &[u8] = b"lw_";
 const PREFIX_TOTAL_CLAIM: &[u8] = b"tc_";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -58,6 +59,22 @@ pub fn read_total_deposit(storage: &dyn Storage, account_addr: &CanonicalAddr) -
     current_deposit
 }
 
+pub fn store_last_ops_ust(
+    storage: &mut dyn Storage,
+    account_addr: &CanonicalAddr,
+    deposit: &Uint256,
+) -> StdResult<()> {
+    Bucket::new(storage, PREFIX_LAST_WITHDRAW).save(account_addr.as_slice(), deposit)
+}
+
+pub fn read_last_ops_ust(storage: &dyn Storage, account_addr: &CanonicalAddr, total_deposit : Uint256) -> Uint256 {
+    let mut current_claim = total_deposit;
+    if let Ok(x) = ReadonlyBucket::new(storage, PREFIX_LAST_WITHDRAW).load(account_addr.as_slice()) {
+        current_claim = x
+    }
+    current_claim
+}
+
 pub fn store_total_claim(
     storage: &mut dyn Storage,
     account_addr: &CanonicalAddr,
@@ -67,13 +84,14 @@ pub fn store_total_claim(
 }
 
 pub fn read_total_claim(storage: &dyn Storage, account_addr: &CanonicalAddr) -> Uint256 {
-    let mut current_claim = Uint256::from(0u128);
+    let mut total_claim = Uint256::from(0u128);
     if let Ok(x) = ReadonlyBucket::new(storage, PREFIX_TOTAL_CLAIM).load(account_addr.as_slice()) {
-        current_claim = x
+        total_claim = x
     }
-    current_claim
+    total_claim
 }
 pub fn remove_account(storage: &mut dyn Storage,  account_addr: &CanonicalAddr) {    
     Bucket::<Uint256>::new(storage, PREFIX_TOTAL_DEPOSIT).remove(account_addr.as_slice());
     Bucket::<Uint256>::new(storage, PREFIX_TOTAL_CLAIM).remove(account_addr.as_slice());
+    Bucket::<Uint256>::new(storage, PREFIX_LAST_WITHDRAW).remove(account_addr.as_slice());
 }
