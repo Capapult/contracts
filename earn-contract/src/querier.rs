@@ -1,12 +1,17 @@
 use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
-use crate::msg::{Account, DashboardResponse, MarketStateResponse, QueryStateMsg, ConfigResponse};
-use crate::state::{read_config, read_profit, read_total_claim, read_last_ops_ust, Config};
-use cw20::{AllAccountsResponse, Cw20QueryMsg, TokenInfoResponse, BalanceResponse as Cw20BalanceResponse };
+use crate::msg::{Account, ConfigResponse, DashboardResponse, MarketStateResponse, QueryStateMsg};
+use crate::state::{
+     read_config, read_last_ops_ust, read_profit, read_total_claim,
+     Config,
+};
+use cw20::{
+    AllAccountsResponse, BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse,
+};
 
 use cosmwasm_std::{
-    to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult,  WasmQuery
+    to_binary, Addr, CanonicalAddr, Coin, Deps, QueryRequest, StdResult, WasmQuery,
 };
 
 use terra_cosmwasm::TerraQuerier;
@@ -31,7 +36,7 @@ pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
-    let exchange_rate = ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate)?;
+    let exchange_rate = ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate, config.capa_yield)?;
     Ok(exchange_rate)
 }
 
@@ -41,14 +46,12 @@ pub fn query_token_balance(
     account_addr: &Addr,
 ) -> StdResult<Uint256> {
     // load balance form the token contract
-    let res : Cw20BalanceResponse = deps
-        .querier
-        .query(&QueryRequest::Wasm(WasmQuery::Smart {
-            contract_addr: contract_addr.to_string(),
-            msg: to_binary(&Cw20QueryMsg::Balance {
-                address: account_addr.to_string(),
-            })?,
-        }))?;
+    let res: Cw20BalanceResponse = deps.querier.query(&QueryRequest::Wasm(WasmQuery::Smart {
+        contract_addr: contract_addr.to_string(),
+        msg: to_binary(&Cw20QueryMsg::Balance {
+            address: account_addr.to_string(),
+        })?,
+    }))?;
     Ok(Uint256::from(res.balance))
 }
 
@@ -69,6 +72,7 @@ pub fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
             .addr_humanize(&config.insurance_contract)?
             .to_string(),
         stable_denom: config.stable_denom,
+        capa_yield: config.capa_yield,
     })
 }
 
@@ -80,6 +84,13 @@ pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256>
         }))?;
 
     Ok(Uint256::from(token_info.total_supply))
+}
+
+pub fn query_capapult_rate(deps: Deps, addr: Addr) -> StdResult<Decimal256> {
+    let config: Config = read_config(deps.storage)?;
+    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
+    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
+    Ok(capa_exchange_rate)
 }
 
 pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
@@ -98,6 +109,7 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
         deps,
         &deps.api.addr_humanize(&config.contract_addr)?,
         &deps.api.addr_humanize(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.cterra_contract)?,
         cust_total_supply,
     )?;
 
@@ -152,16 +164,20 @@ pub fn calculate_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
+    cterra_contract: &Addr,
     total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
+    let config: Config = read_config(deps.storage)?;
+    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
 
-    let res1 = total_aterra_amount * exchange_rate;
-    let res2 = total_c_ust_supply * capa_exchange_rate;
+    let mut res1 = total_aterra_amount * exchange_rate;
+    let mut remaining_supply = total_c_ust_supply;
+
+    let res2 = remaining_supply * capa_exchange_rate;
     if res1 <= res2 {
         return Ok(Uint256::zero());
     }
@@ -173,34 +189,40 @@ pub fn calculate_aterra_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
+    cterra_contract: &Addr,
     total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
-
-    let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
-    let res1 = total_aterra_amount * exchange_rate;
-    let res2 = total_c_ust_supply * capa_exchange_rate;
-    if res1 <= res2 {
-        return Ok(Uint256::zero());
-    }
-
-    Ok((res1 - res2) / exchange_rate)
+    Ok(calculate_profit(
+        deps,
+        earn_contract,
+        aterra_contract,
+        cterra_contract,
+        total_c_ust_supply,
+    )? / exchange_rate)
 }
 
-pub fn query_harvest_value(deps: Deps, cust_balance : Uint256, account_addr: String) -> StdResult<Uint256> {
-    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate)?;
+pub fn query_harvest_value(
+    deps: Deps,
+    cust_balance: Uint256,
+    account_addr: String,
+) -> StdResult<Uint256> {
+    if cust_balance == Uint256::zero() {
+        return Ok(Uint256::from(0u128));
+    }
+    let config: Config = read_config(deps.storage)?;
 
+    let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
+    let addr: Addr = deps.api.addr_validate(account_addr.as_str())?;
     let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
+    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
     let last_ops_ust = read_last_ops_ust(deps.storage, &account_addr_canon, Uint256::zero());
 
     let current_ust = cust_balance * capa_exchange_rate;
-
-    if current_ust > last_ops_ust   {
-        return Ok(current_ust - last_ops_ust  );
-    } 
+    if current_ust > last_ops_ust {
+        return Ok(current_ust - last_ops_ust);
+    }
 
     Ok(Uint256::from(0u128))
 }

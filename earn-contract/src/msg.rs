@@ -10,6 +10,7 @@ pub struct InstantiateMsg {
     pub owner_addr: String,
     /// stable coin denom used to borrow & repay
     pub stable_denom: String,
+    pub capa_yield: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -38,8 +39,8 @@ pub enum ExecuteMsg {
     ////////////////////
     /// Deposit stable asset to get interest
     Deposit {},
-    RemoveAccount{        
-       addr: Option<Addr>,
+    RemoveAccount {
+        addr: Option<Addr>,
     },
     Receive(Cw20ReceiveMsg),
 }
@@ -75,6 +76,9 @@ pub enum QueryMsg {
     QueryCustSupply {
         contract_addr: String,
     },
+    QueryCapapultRate {
+        addr: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -100,6 +104,7 @@ pub struct ConfigResponse {
     pub capa_contract: String,
     pub insurance_contract: String,
     pub stable_denom: String,
+    pub capa_yield: String,
 }
 
 // We define a custom struct for each query response

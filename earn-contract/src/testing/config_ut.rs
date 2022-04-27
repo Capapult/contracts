@@ -60,6 +60,7 @@ fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> C
         capa_contract: deps.api.addr_canonicalize("capa_contract").unwrap(),
         insurance_contract: deps.api.addr_canonicalize("insurance_contract").unwrap(),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     }
 }
 
@@ -82,6 +83,7 @@ fn test_update_config() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -107,11 +109,12 @@ fn test_update_config() {
     }
 
     let new_owner = deps.api.addr_validate("owner2").unwrap();
-    let msg = ExecuteMsg::UpdateConfig {owner_addr: Some(new_owner) };
+    let msg = ExecuteMsg::UpdateConfig {
+        owner_addr: Some(new_owner),
+    };
 
     let info = mock_info("owner", &[]);
     let res = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone());
-
 
     let msg = QueryMsg::Config {};
 
@@ -126,8 +129,7 @@ fn test_update_config() {
         Err(_e) => panic!("Error: {}", _e),
     };
 
-    let owner_addr = "owner2"
-        .to_string();
+    let owner_addr = "owner2".to_string();
 
     let market_contract = deps
         .api
@@ -178,6 +180,7 @@ fn test_update_config() {
                     capa_contract: capa_contract,
                     insurance_contract: insurance_contract,
                     stable_denom: "uusd".to_string(),
+                    capa_yield: "100".to_string(),
                 }
             );
         }

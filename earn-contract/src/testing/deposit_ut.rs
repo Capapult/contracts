@@ -24,6 +24,7 @@ fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> C
         capa_contract: deps.api.addr_canonicalize("capa_contract").unwrap(),
         insurance_contract: deps.api.addr_canonicalize("insurance_contract").unwrap(),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     }
 }
 
@@ -45,6 +46,7 @@ fn instantiate_with_wrong_initial_amount() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -83,6 +85,7 @@ fn register_contract_with_wrong_owner() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -130,6 +133,7 @@ fn too_small_deposit() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -198,6 +202,7 @@ fn proper_deposit() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -289,6 +294,7 @@ fn withdraw_too_much() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -405,6 +411,7 @@ fn withdraw_too_little() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -525,6 +532,7 @@ fn proper_withdraw() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(

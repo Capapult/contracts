@@ -2,25 +2,25 @@
 use cosmwasm_std::entry_point;
 
 use crate::deposit::{deposit, redeem_stable};
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, RedeemStableHookMsg, MigrateMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg, RedeemStableHookMsg};
 use crate::querier::{
     calculate_aterra_profit, query_capacorp_all_accounts, query_capapult_exchange_rate,
-    query_dashboard, query_harvest_value, query_harvested_sum, query_token_balance,
-    query_token_supply, query_config
+    query_capapult_rate, query_config, query_dashboard,
+    query_harvest_value, query_harvested_sum, query_token_balance, query_token_supply,
 };
 
 use crate::state::{
-    read_config, read_profit, store_config, store_profit, Config, remove_account
+    read_config, read_profit, remove_account, store_config, store_profit, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg,
-    Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
+    attr, from_binary, to_binary, Addr, Attribute, Binary, CanonicalAddr, CosmosMsg, Deps, DepsMut,
+    Env, MessageInfo, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw20::{Cw20ExecuteMsg, Cw20ReceiveMsg};
 
 pub const _1M_: u128 = 1000000;
-pub const INITIAL_DEPOSIT_AMOUNT: u128 = 100*_1M_;
+pub const INITIAL_DEPOSIT_AMOUNT: u128 = 100 * _1M_;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -66,6 +66,7 @@ pub fn instantiate(
             capacorp_contract: CanonicalAddr::from(vec![]),
             capa_contract: CanonicalAddr::from(vec![]),
             insurance_contract: CanonicalAddr::from(vec![]),
+            capa_yield: msg.capa_yield
         },
     )?;
 
@@ -95,11 +96,10 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
         ExecuteMsg::UpdateConfig { owner_addr } => update_config(deps, info, owner_addr),
         ExecuteMsg::Distribute {} => distribute(deps, env, info),
         ExecuteMsg::Deposit {} => deposit(deps, info),
-        ExecuteMsg::RemoveAccount {addr } => remove_info_account(deps, info, addr ),
+        ExecuteMsg::RemoveAccount { addr } => remove_info_account(deps, info, addr),
         ExecuteMsg::Receive(msg) => receive_cw20(deps, env, info, msg),
     }
 }
-
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -131,6 +131,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
         QueryMsg::QueryCustSupply { contract_addr } => to_binary(&query_token_supply(
             deps,
             deps.api.addr_validate(contract_addr.as_str())?,
+        )?),
+        QueryMsg::QueryCapapultRate { addr } => to_binary(&query_capapult_rate(
+            deps,
+            deps.api.addr_validate(addr.as_str())?,
         )?),
     }
 }
@@ -227,8 +231,11 @@ pub fn update_config(
     Ok(Response::new().add_attribute("action", "update_config"))
 }
 
-
-pub fn remove_info_account(deps: DepsMut, info: MessageInfo, account_addr: Option<Addr>) -> StdResult<Response> {    
+pub fn remove_info_account(
+    deps: DepsMut,
+    info: MessageInfo,
+    account_addr: Option<Addr>,
+) -> StdResult<Response> {
     let config: Config = read_config(deps.storage)?;
     // permission check
     if deps.api.addr_canonicalize(info.sender.as_str())? != config.owner_addr {
@@ -310,23 +317,18 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
         deps.as_ref(),
         &env.contract.address,
         &deps.api.addr_humanize(&config.aterra_contract)?,
+        &deps.api.addr_humanize(&config.cterra_contract)?,
         cust_total_supply,
     )?;
-    /*  let tax_amount = compute_tax(deps, &Coin {
-            denom: config.stable_denom.clone(),
-            amount: profit.into(),
-        })?;
 
-        profit = profit - tax_amount;
-    */
-    let insurance_share = Decimal256::from_ratio(3, 100);
+    // add insurance share here - zero for now
+    let insurance_share = Decimal256::from_ratio(0, 100);
     let insurance_amount = profit * insurance_share;
 
     profit = profit - insurance_amount;
 
-    // TODO: once tested take profit when at least there is at least 100 USD of profit
-    // DURING TEST, profit taking can occur with only 0.1 UST
-    if profit < Uint256::from(/* INITIAL_DEPOSIT_AMOUNT * */ _1M_ / 10) {
+    // take profit when at least there is at least 100 USD of profit
+    if profit < Uint256::from(INITIAL_DEPOSIT_AMOUNT) {
         return Err(StdError::GenericErr {
             msg: format!("Too little profit to distribute: {}", profit),
         });

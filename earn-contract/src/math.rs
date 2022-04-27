@@ -1,5 +1,5 @@
 use bigint::U256;
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{StdError, StdResult};
 
 pub trait Math {
@@ -175,18 +175,24 @@ pub struct ExchangeRate;
 
 pub trait Calculate {
     const A: Decimal256;
-    const B: Decimal256;
     const LN_A: Decimal256;
+    const LN_C: Decimal256;
 
     fn a_terra_exchange_rate(day: Decimal256) -> StdResult<Decimal256>;
     fn invert_a_terra_exchange_rate(exchange_rate: Decimal256) -> StdResult<Decimal256>;
-    fn capapult_exchange_rate(a_terra_exchange_rate: Decimal256) -> StdResult<Decimal256>;
+    fn invert_c_terra_exchange_rate(exchange_rate: Decimal256) -> StdResult<Decimal256>;
+
+   fn capapult_exchange_rate(
+        a_terra_exchange_rate: Decimal256,
+        yield_user: String,
+    ) -> StdResult<Decimal256>;
 }
 
 impl Calculate for ExchangeRate {
     const A: Decimal256 = Decimal256(U256([1_000_499_635_890_955_755u64, 0, 0, 0]));
-    const B: Decimal256 = Decimal256(U256([1_000_285_958_728_607_700u64, 0, 0, 0]));
     const LN_A: Decimal256 = Decimal256(U256([499_511_114_504_063u64, 0, 0, 0]));
+    const LN_C: Decimal256 = Decimal256(U256([285_917_850_203_305u64, 0, 0, 0]));
+
 
     fn a_terra_exchange_rate(day: Decimal256) -> StdResult<Decimal256> {
         // https://www.omnicalculator.com/statistics/exponential-regression
@@ -197,16 +203,26 @@ impl Calculate for ExchangeRate {
     }
 
     fn invert_a_terra_exchange_rate(exchange_rate: Decimal256) -> StdResult<Decimal256> {
-        let inv_rate = Decimal256::ln(exchange_rate)? / ExchangeRate::LN_A;
-        Ok(inv_rate)
+        let day = Decimal256::ln(exchange_rate)? / ExchangeRate::LN_A;
+        Ok(day)
     }
 
-    fn capapult_exchange_rate(a_terra_exchange_rate: Decimal256) -> StdResult<Decimal256> {
-        // https://www.omnicalculator.com/statistics/exponential-regression
-        // exponential fit for points (0,1), (365,1.1), (730,1.21)
-        // does not matter really as it will depend on market and will be fetched on chain
-        let day = ExchangeRate::invert_a_terra_exchange_rate(a_terra_exchange_rate)?;
-        let rate = ExchangeRate::B.powf(day)?;
+    fn invert_c_terra_exchange_rate(exchange_rate: Decimal256) -> StdResult<Decimal256> {
+        let day = Decimal256::ln(exchange_rate)? / ExchangeRate::LN_C;
+        Ok(day)
+    }
+
+    fn capapult_exchange_rate(
+        a_terra_exchange_rate: Decimal256,
+        yield_user: String,
+    ) -> StdResult<Decimal256> {
+        let yield_int : i32;
+        match yield_user.parse::<i32>() {
+            Ok(n) => yield_int = n,
+            Err(e) =>  yield_int = 55,
+        };
+
+        let rate = a_terra_exchange_rate * Decimal256::from_ratio(U256::from(yield_int), U256::from(100i32));
         Ok(rate)
     }
 }

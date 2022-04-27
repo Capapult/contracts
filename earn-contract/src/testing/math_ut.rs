@@ -1,6 +1,7 @@
 use bigint::U256;
-use cosmwasm_bignumber::Decimal256;
+use cosmwasm_bignumber::{Uint256,Decimal256};
 use std::result::Result;
+use std::str::FromStr;
 
 use crate::math::*;
 
@@ -74,48 +75,6 @@ mod tests {
             "1.50000000000",
             ExchangeRate::invert_a_terra_exchange_rate(
                 ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(3, 2)).unwrap()
-            )
-            .unwrap()
-            .to_string()
-            .get(0..13)
-            .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_capapult_exchange_rate() {
-        assert_eq!(
-            "1",
-            ExchangeRate::capapult_exchange_rate(
-                ExchangeRate::a_terra_exchange_rate(Decimal256::zero()).unwrap()
-            )
-            .unwrap()
-            .to_string()
-        );
-        assert_eq!(
-            "1.00028595872860",
-            ExchangeRate::capapult_exchange_rate(
-                ExchangeRate::a_terra_exchange_rate(Decimal256::one()).unwrap()
-            )
-            .unwrap()
-            .to_string()
-            .get(0..16)
-            .unwrap()
-        );
-        assert_eq!(
-            "1.109999999999",
-            ExchangeRate::capapult_exchange_rate(
-                ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(365, 1)).unwrap()
-            )
-            .unwrap()
-            .to_string()
-            .get(0..14)
-            .unwrap()
-        );
-        assert_eq!(
-            "1.23209999999",
-            ExchangeRate::capapult_exchange_rate(
-                ExchangeRate::a_terra_exchange_rate(Decimal256::from_ratio(2 * 365, 1)).unwrap()
             )
             .unwrap()
             .to_string()

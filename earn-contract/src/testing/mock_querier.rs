@@ -10,7 +10,7 @@ use cosmwasm_std::{
     QuerierResult, QueryRequest, SystemError, SystemResult, Uint128, WasmQuery,
 };
 use cosmwasm_storage::to_length_prefixed;
-use cw20::{AllAccountsResponse, TokenInfoResponse, BalanceResponse};
+use cw20::{AllAccountsResponse, BalanceResponse, TokenInfoResponse};
 use std::collections::HashMap;
 use terra_cosmwasm::{TaxCapResponse, TaxRateResponse, TerraQuery, TerraQueryWrapper, TerraRoute};
 
@@ -75,10 +75,6 @@ pub(crate) fn balances_to_map(
         }
 
         balances_map.insert(String::from(*contract_addr), contract_balances_map);
-        println!(
-            "balances_map.insert contract_addr {}",
-            String::from(*contract_addr)
-        );
     }
     balances_map
 }
@@ -151,8 +147,7 @@ impl WasmMockQuerier {
                 }
             }
             QueryRequest::Wasm(WasmQuery::Smart { contract_addr, msg }) => {
-
-                let matcher : QueryMsg = from_binary(&msg).unwrap();
+                let matcher: QueryMsg = from_binary(&msg).unwrap();
                 match matcher {
                     QueryMsg::AllAccounts {} => {
                         let mut vec = Vec::new();
@@ -173,6 +168,7 @@ impl WasmMockQuerier {
                             capacorp_contract: String::from(""),
                             insurance_contract: String::from(""),
                             stable_denom: "uusd".to_string(),
+                            capa_yield: "100".to_string(),
                         })))
                     }
                     QueryMsg::State {} => {
@@ -196,13 +192,13 @@ impl WasmMockQuerier {
                             };
                         let option_balance = balances.get(&address);
 
-                        let mut balance : &Uint128 = &Uint128::zero();
+                        let mut balance: &Uint128 = &Uint128::zero();
                         if option_balance.is_none() == false {
                             balance = option_balance.unwrap();
                         }
 
-                        SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse { 
-                            balance: *balance
+                        SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse {
+                            balance: *balance,
                         })))
                     }
                     QueryMsg::TokenInfo {} => {
@@ -267,8 +263,8 @@ impl WasmMockQuerier {
                         }
                     };
 
-                    SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse { 
-                        balance: *balance
+                    SystemResult::Ok(ContractResult::from(to_binary(&BalanceResponse {
+                        balance: *balance,
                     })))
                 } else {
                     panic!("DO NOT ENTER HERE")
@@ -294,7 +290,6 @@ impl WasmMockQuerier {
         addr: U,
         balance: Vec<Coin>,
     ) -> Option<Vec<Coin>> {
-        println!("update_balance");
         self.base.update_balance(addr, balance)
     }
 

@@ -60,6 +60,7 @@ fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> C
         capa_contract: deps.api.addr_canonicalize("capa_contract").unwrap(),
         insurance_contract: deps.api.addr_canonicalize("insurance_contract").unwrap(),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     }
 }
 
@@ -90,6 +91,7 @@ fn not_authorized_distribute() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -181,6 +183,7 @@ fn too_little_profit_distribute() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -273,6 +276,7 @@ fn proper_distribute() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -362,7 +366,7 @@ fn proper_distribute() {
                 msg.attributes,
                 vec![
                     attr("action", "distribute"),
-                    attr("insurance", "2700000000000"),
+                    attr("insurance", "0"),
                     attr("daniel", "0"),
                     attr("bruno", "0"),
                 ]

@@ -60,6 +60,7 @@ fn get_mock_config(deps: &OwnedDeps<MockStorage, MockApi, WasmMockQuerier>) -> C
         capa_contract: deps.api.addr_canonicalize("capa_contract").unwrap(),
         insurance_contract: deps.api.addr_canonicalize("insurance_contract").unwrap(),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     }
 }
 
@@ -82,6 +83,7 @@ fn test_query_dashboard() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -224,6 +226,7 @@ fn test_query_config() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -311,6 +314,7 @@ fn test_query_config() {
                     capa_contract: capa_contract,
                     insurance_contract: insurance_contract,
                     stable_denom: "uusd".to_string(),
+                    capa_yield: "100".to_string(),
                 }
             );
         }
@@ -338,6 +342,7 @@ fn test_query_corpaccount() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -376,10 +381,7 @@ fn test_query_corpaccount() {
 
     match res {
         Ok(msg) => {
-            assert_eq!(
-                bin.unwrap(),
-                corp_accounts
-            );
+            assert_eq!(bin.unwrap(), corp_accounts);
         }
         Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),
@@ -404,6 +406,7 @@ fn test_query_availableharvest() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -428,7 +431,9 @@ fn test_query_availableharvest() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = QueryMsg::AvailableHarvest {account_addr: "addr0000".to_string()};
+    let msg = QueryMsg::AvailableHarvest {
+        account_addr: "addr0000".to_string(),
+    };
 
     let res = &query(deps.as_ref(), mock_env(), msg.clone());
     let bin: StdResult<Uint256> = match res {
@@ -436,13 +441,9 @@ fn test_query_availableharvest() {
         Err(_e) => panic!("Error: {}", _e),
     };
 
-
     match res {
         Ok(msg) => {
-            assert_eq!(
-                bin.unwrap(),
-                Uint256::zero()
-            );
+            assert_eq!(bin.unwrap(), Uint256::zero());
         }
         Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),
@@ -467,6 +468,7 @@ fn test_query_harvestedsum() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -491,7 +493,9 @@ fn test_query_harvestedsum() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = QueryMsg::HarvestedSum { account_addr: "addr0000".to_string()};
+    let msg = QueryMsg::HarvestedSum {
+        account_addr: "addr0000".to_string(),
+    };
 
     let res = &query(deps.as_ref(), mock_env(), msg.clone());
     let bin: StdResult<Uint256> = match res {
@@ -499,13 +503,9 @@ fn test_query_harvestedsum() {
         Err(_e) => panic!("Error: {}", _e),
     };
 
-
     match res {
         Ok(msg) => {
-            assert_eq!(
-                bin.unwrap(),
-                Uint256::zero()
-            );
+            assert_eq!(bin.unwrap(), Uint256::zero());
         }
         Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),
@@ -530,6 +530,7 @@ fn test_query_token() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -554,9 +555,10 @@ fn test_query_token() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = QueryMsg::QueryToken { 
+    let msg = QueryMsg::QueryToken {
         contract_addr: "aterra_contract".to_string(),
-        account_addr: "owner".to_string()};
+        account_addr: "owner".to_string(),
+    };
 
     let res = &query(deps.as_ref(), mock_env(), msg.clone());
     let bin: StdResult<Uint256> = match res {
@@ -564,13 +566,9 @@ fn test_query_token() {
         Err(_e) => panic!("Error: {}", _e),
     };
 
-
     match res {
         Ok(msg) => {
-            assert_eq!(
-                bin.unwrap(),
-                Uint256::zero()
-            );
+            assert_eq!(bin.unwrap(), Uint256::zero());
         }
         Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),
@@ -595,6 +593,7 @@ fn test_query_cust_supply() {
     let msg = InstantiateMsg {
         owner_addr: String::from("owner"),
         stable_denom: "uusd".to_string(),
+        capa_yield: "100".to_string(),
     };
 
     let info = mock_info(
@@ -619,7 +618,7 @@ fn test_query_cust_supply() {
         _ => panic!("DO NOT ENTER HERE"),
     }
 
-    let msg = QueryMsg::QueryCustSupply { 
+    let msg = QueryMsg::QueryCustSupply {
         contract_addr: "cterra_contract".to_string(),
     };
 
@@ -633,13 +632,9 @@ fn test_query_cust_supply() {
         Err(_e) => panic!("Error: {}", _e),
     };
 
-
     match res {
         Ok(msg) => {
-            assert_eq!(
-                bin.unwrap(),
-                Uint256::from(1000000u128)
-            );
+            assert_eq!(bin.unwrap(), Uint256::from(1000000u128));
         }
         Err(msg) => println!("{}", msg),
         _ => panic!("DO NOT ENTER HERE"),

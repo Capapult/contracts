@@ -3,7 +3,8 @@ use crate::querier::{
     compute_tax, deduct_tax, query_capapult_exchange_rate, query_exchange_rate, query_token_balance,
 };
 use crate::state::{
-    read_config, read_total_deposit, store_total_claim, store_total_deposit, Config, read_last_ops_ust, store_last_ops_ust, read_total_claim
+    read_config, read_last_ops_ust, read_total_claim, read_total_deposit, store_last_ops_ust,
+    store_total_claim, store_total_deposit, Config,
 };
 use cosmwasm_bignumber::{Decimal256, Uint256};
 use cosmwasm_std::{
@@ -34,7 +35,6 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     )?;
     deposit_amount = Uint256::from(deposit_coin.amount);
 
-
     // Cannot deposit smallish amount
     if deposit_amount <= Uint256::from(1_000_000u128) {
         return Err(StdError::generic_err(format!(
@@ -47,13 +47,13 @@ pub fn deposit(deps: DepsMut, info: MessageInfo) -> StdResult<Response> {
     let mint_amount = deposit_amount / capa_exchange_rate;
 
     let sender: CanonicalAddr = deps.api.addr_canonicalize(info.sender.as_str())?;
-    let mut current_deposit = read_total_deposit(deps.storage, &sender);    
+    let mut current_deposit = read_total_deposit(deps.storage, &sender);
     current_deposit += deposit_amount;
     store_total_deposit(deps.storage, &sender, &current_deposit)?;
 
-    let mut last_withdraw = read_last_ops_ust(deps.storage, &sender, Uint256::zero());    
-    last_withdraw += deposit_amount;
-    store_last_ops_ust(deps.storage, &sender, &last_withdraw)?;
+    let mut last_ops_ust = read_last_ops_ust(deps.storage, &sender, Uint256::zero());
+    last_ops_ust += deposit_amount;
+    store_last_ops_ust(deps.storage, &sender, &last_ops_ust)?;
 
     Ok(Response::new()
         .add_messages(vec![
@@ -122,12 +122,8 @@ pub fn redeem_stable(
     let aust_burn_amount = withdraw_amount / exchange_rate;
     let aust_contract_address = deps.api.addr_humanize(&config.aterra_contract)?;
 
-
-   let current_balance = query_token_balance(
-        deps.as_ref(),
-        &aust_contract_address,
-        &env.contract.address,
-    )?;
+    let current_balance =
+        query_token_balance(deps.as_ref(), &aust_contract_address, &env.contract.address)?;
 
     let cust_balance = query_token_balance(
         deps.as_ref(),
@@ -135,21 +131,18 @@ pub fn redeem_stable(
         &deps.api.addr_validate(sender.as_str())?,
     )?;
 
-
-     if aust_burn_amount > current_balance {
-         return Err(StdError::generic_err(format!(
-             "Not enough aust available; redeem amount {} larger than current balance {}",
-             aust_burn_amount, current_balance
-         )));
-     }
+    if aust_burn_amount > current_balance {
+        return Err(StdError::generic_err(format!(
+            "Not enough aust available; redeem amount {} larger than current balance {}",
+            aust_burn_amount, current_balance
+        )));
+    }
 
     let sender_canon: CanonicalAddr = deps.api.addr_canonicalize(sender.as_str())?;
-    let mut current_deposit = read_total_deposit(deps.storage, &sender_canon);
-    let mut last_ops_ust = read_last_ops_ust(deps.storage, &sender_canon, Uint256::zero());   
-    let mut user_claim = read_total_claim(deps.storage, &sender_canon);  
+    let mut last_ops_ust = read_last_ops_ust(deps.storage, &sender_canon, Uint256::zero());
     let burn_amount_ust = Uint256::from(burn_amount) * capa_exchange_rate;
     let current_ust = (cust_balance + Uint256::from(burn_amount)) * capa_exchange_rate;
-    let current_interest : Uint256;
+    let current_interest: Uint256;
 
     if current_ust > last_ops_ust {
         current_interest = current_ust - last_ops_ust;
@@ -157,16 +150,18 @@ pub fn redeem_stable(
         current_interest = Uint256::zero();
     }
 
-    let interest : Uint256;
+    let interest: Uint256;
     if current_interest > burn_amount_ust {
         interest = burn_amount_ust;
     } else {
         interest = current_interest;
     }
 
+    let mut user_claim = read_total_claim(deps.storage, &sender_canon);
     user_claim += interest;
     store_total_claim(deps.storage, &sender_canon, &user_claim)?;
 
+    let mut current_deposit = read_total_deposit(deps.storage, &sender_canon);
     if current_deposit > burn_amount_ust {
         current_deposit = current_deposit - burn_amount_ust;
     } else {
@@ -175,12 +170,11 @@ pub fn redeem_stable(
     store_total_deposit(deps.storage, &sender_canon, &current_deposit)?;
 
     if last_ops_ust + interest > burn_amount_ust {
-        last_ops_ust = last_ops_ust  - burn_amount_ust + interest;
+        last_ops_ust = last_ops_ust - burn_amount_ust + interest;
     } else {
         last_ops_ust = Uint256::from(0u128);
     }
     store_last_ops_ust(deps.storage, &sender_canon, &last_ops_ust)?;
-
 
     Ok(Response::new()
         .add_messages(vec![
