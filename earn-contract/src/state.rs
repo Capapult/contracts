@@ -2,9 +2,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use cosmwasm_bignumber::Uint256;
-use cosmwasm_std::{Addr, CanonicalAddr, Order, StdResult, Storage};
+use cosmwasm_std::{ CanonicalAddr,  StdResult, Storage};
 use cosmwasm_storage::{Bucket, ReadonlyBucket, ReadonlySingleton, Singleton};
-use cw_storage_plus::Map;
 
 pub static KEY_CONFIG: &[u8] = b"config";
 pub const KEY_BALANCE: &[u8] = b"balance";

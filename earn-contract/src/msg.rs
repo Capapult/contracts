@@ -76,9 +76,7 @@ pub enum QueryMsg {
     QueryCustSupply {
         contract_addr: String,
     },
-    QueryCapapultRate {
-        addr: String,
-    },
+    QueryCapapultRate {},
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

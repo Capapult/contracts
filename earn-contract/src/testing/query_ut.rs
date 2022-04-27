@@ -2,12 +2,12 @@ use crate::contract::{execute, instantiate, query, INITIAL_DEPOSIT_AMOUNT};
 use crate::msg::{ConfigResponse, DashboardResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::Config;
 use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
-use cosmwasm_bignumber::{Decimal256, Uint256};
+use cosmwasm_bignumber::{ Uint256};
 use cosmwasm_std::testing::{
-    mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
+    mock_env, mock_info, MockApi,  MockStorage, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, Coin, Deps, DepsMut, MemoryStorage, OwnedDeps, StdError,
+     from_binary,  Api, Coin, OwnedDeps, 
     StdResult, Uint128,
 };
 

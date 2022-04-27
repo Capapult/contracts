@@ -132,10 +132,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             deps,
             deps.api.addr_validate(contract_addr.as_str())?,
         )?),
-        QueryMsg::QueryCapapultRate { addr } => to_binary(&query_capapult_rate(
+        QueryMsg::QueryCapapultRate {} => to_binary(&query_capapult_rate(
             deps,
-            deps.api.addr_validate(addr.as_str())?,
-        )?),
+        )?)
     }
 }
 

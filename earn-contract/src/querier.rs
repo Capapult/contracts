@@ -2,10 +2,7 @@ use cosmwasm_bignumber::{Decimal256, Uint256};
 
 use crate::math::*;
 use crate::msg::{Account, ConfigResponse, DashboardResponse, MarketStateResponse, QueryStateMsg};
-use crate::state::{
-     read_config, read_last_ops_ust, read_profit, read_total_claim,
-     Config,
-};
+use crate::state::{read_config, read_last_ops_ust, read_profit, read_total_claim, Config};
 use cw20::{
     AllAccountsResponse, BalanceResponse as Cw20BalanceResponse, Cw20QueryMsg, TokenInfoResponse,
 };
@@ -36,7 +33,8 @@ pub fn query_capapult_exchange_rate(deps: Deps) -> StdResult<Decimal256> {
             msg: to_binary(&QueryStateMsg::State {})?,
         }));
 
-    let exchange_rate = ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate, config.capa_yield)?;
+    let exchange_rate =
+        ExchangeRate::capapult_exchange_rate(market_state?.prev_exchange_rate, config.capa_yield)?;
     Ok(exchange_rate)
 }
 
@@ -86,10 +84,11 @@ pub fn query_token_supply(deps: Deps, contract_addr: Addr) -> StdResult<Uint256>
     Ok(Uint256::from(token_info.total_supply))
 }
 
-pub fn query_capapult_rate(deps: Deps, addr: Addr) -> StdResult<Decimal256> {
+pub fn query_capapult_rate(deps: Deps) -> StdResult<Decimal256> {
     let config: Config = read_config(deps.storage)?;
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
+    let capa_exchange_rate =
+        ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
     Ok(capa_exchange_rate)
 }
 
@@ -170,12 +169,13 @@ pub fn calculate_profit(
     // Load anchor token exchange rate with updated state
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
     let config: Config = read_config(deps.storage)?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
+    let capa_exchange_rate =
+        ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
 
     let total_aterra_amount = query_token_balance(deps, aterra_contract, earn_contract)?;
 
-    let mut res1 = total_aterra_amount * exchange_rate;
-    let mut remaining_supply = total_c_ust_supply;
+    let res1 = total_aterra_amount * exchange_rate;
+    let remaining_supply = total_c_ust_supply;
 
     let res2 = remaining_supply * capa_exchange_rate;
     if res1 <= res2 {
@@ -214,9 +214,9 @@ pub fn query_harvest_value(
     let config: Config = read_config(deps.storage)?;
 
     let exchange_rate: Decimal256 = query_exchange_rate(deps)?;
-    let addr: Addr = deps.api.addr_validate(account_addr.as_str())?;
     let account_addr_canon: CanonicalAddr = deps.api.addr_canonicalize(account_addr.as_str())?;
-    let capa_exchange_rate = ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
+    let capa_exchange_rate =
+        ExchangeRate::capapult_exchange_rate(exchange_rate, config.capa_yield)?;
     let last_ops_ust = read_last_ops_ust(deps.storage, &account_addr_canon, Uint256::zero());
 
     let current_ust = cust_balance * capa_exchange_rate;
