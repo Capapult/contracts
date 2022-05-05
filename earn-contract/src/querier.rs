@@ -108,7 +108,6 @@ pub fn query_dashboard(deps: Deps) -> StdResult<DashboardResponse> {
         deps,
         &deps.api.addr_humanize(&config.contract_addr)?,
         &deps.api.addr_humanize(&config.aterra_contract)?,
-        &deps.api.addr_humanize(&config.cterra_contract)?,
         cust_total_supply,
     )?;
 
@@ -163,7 +162,6 @@ pub fn calculate_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
-    cterra_contract: &Addr,
     total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
@@ -189,7 +187,6 @@ pub fn calculate_aterra_profit(
     deps: Deps,
     earn_contract: &Addr,
     aterra_contract: &Addr,
-    cterra_contract: &Addr,
     total_c_ust_supply: Uint256,
 ) -> StdResult<Uint256> {
     // Load anchor token exchange rate with updated state
@@ -198,7 +195,6 @@ pub fn calculate_aterra_profit(
         deps,
         earn_contract,
         aterra_contract,
-        cterra_contract,
         total_c_ust_supply,
     )? / exchange_rate)
 }

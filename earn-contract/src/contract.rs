@@ -316,7 +316,6 @@ pub fn distribute(deps: DepsMut, env: Env, info: MessageInfo) -> StdResult<Respo
         deps.as_ref(),
         &env.contract.address,
         &deps.api.addr_humanize(&config.aterra_contract)?,
-        &deps.api.addr_humanize(&config.cterra_contract)?,
         cust_total_supply,
     )?;
 

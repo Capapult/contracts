@@ -1,15 +1,14 @@
 use crate::contract::{execute, instantiate, INITIAL_DEPOSIT_AMOUNT};
 use crate::deposit::redeem_stable;
-use crate::msg::{ExecuteMsg, InstantiateMsg, RedeemStableHookMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg};
 use crate::querier::query_token_balance;
 use crate::state::Config;
 use crate::testing::mock_querier::{mock_dependencies, WasmMockQuerier};
 use cosmwasm_std::testing::{
-    mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
+    mock_env, mock_info, MockApi,  MockStorage, MOCK_CONTRACT_ADDR,
 };
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Api, Binary, Coin, Deps, DepsMut, MemoryStorage, OwnedDeps,
-    StdError, StdResult, Uint128,
+    attr, Api, Binary, Coin,  OwnedDeps, StdError,  Uint128,
 };
 use std::str;
 
